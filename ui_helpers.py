@@ -13,7 +13,7 @@ import gradio as gr
 from typing import Tuple, Optional, List
 from config import (
     logger, MODEL_CONFIG, GEN_CONFIG, SEARCH_CONFIG, OPTIMAL_SETTINGS,
-    OUTPUT_DIR, MODEL_SEARCH_PATHS, InvalidParameterError
+    OUTPUT_DIR, MODEL_SEARCH_PATHS, InvalidParameterError, GenerationInterruptedError
 )
 from state import state_manager, GenerationState, resource_pool
 from utils import (
@@ -478,7 +478,6 @@ def generate_image_with_progress(
         return output_path, info, str(final_seed)
 
     except Exception as e:
-        from config import GenerationInterruptedError
         if isinstance(e, GenerationInterruptedError):
             state_manager.set_state(GenerationState.INTERRUPTED)
             return None, "⚠️ Generation interrupted", seed
