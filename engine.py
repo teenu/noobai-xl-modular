@@ -356,6 +356,7 @@ class NoobAIEngine:
         enable_dora: Optional[bool] = None,
         dora_start_step: Optional[int] = None,
         dora_toggle_mode: Optional[str] = None,
+        dora_manual_schedule: Optional[str] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> Tuple[Image.Image, int, str]:
         """Generate an image with the specified parameters."""
@@ -395,6 +396,19 @@ class NoobAIEngine:
                 seed = random.randint(0, 2**32 - 1)
             generator = torch.Generator(self._device).manual_seed(seed)
 
+            # Parse manual DoRA schedule if provided
+            manual_schedule = None
+            manual_schedule_warning = None
+            if dora_toggle_mode == "manual":
+                if dora_manual_schedule:
+                    from utils import parse_manual_dora_schedule
+                    manual_schedule, manual_schedule_warning = parse_manual_dora_schedule(dora_manual_schedule, steps)
+                    if manual_schedule_warning:
+                        logger.warning(manual_schedule_warning)
+                    logger.info(f"Parsed manual DoRA schedule: {manual_schedule}")
+                else:
+                    logger.warning("Manual toggle mode selected but no schedule provided - DoRA will be OFF for all steps")
+
             # Validate toggle mode and start step don't conflict
             if dora_toggle_mode and self.enable_dora and self.dora_loaded and self.dora_start_step > 1:
                 logger.warning(f"Toggle mode '{dora_toggle_mode}' enabled with dora_start_step={self.dora_start_step}. Toggle mode will override start_step setting.")
@@ -404,10 +418,17 @@ class NoobAIEngine:
             if self.enable_dora and self.dora_loaded and self.dora_start_step > 1 and not dora_toggle_mode:
                 self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
 
-            # For toggle mode, set initial DoRA state to ON (both standard and smart start ON)
+            # For toggle mode, set initial DoRA state based on mode
             if dora_toggle_mode and self.enable_dora and self.dora_loaded:
-                # Both modes: Index 0 = ON
-                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                if dora_toggle_mode == "manual":
+                    # Manual mode: Set based on index 0 of schedule (default OFF if no schedule)
+                    if manual_schedule and manual_schedule[0] == 1:
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                    else:
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+                else:
+                    # Standard and Smart modes: Index 0 = ON
+                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
 
             # Generation callback
             start_time = time.time()
@@ -467,6 +488,27 @@ class NoobAIEngine:
                             else:
                                 current_state = "ON"  # Always ON from index 20+
                             desc = f"Step {current_step}/{steps} (DoRA: {current_state}, final, ETA: {eta:.1f}s)"
+
+                    elif dora_toggle_mode == "manual":
+                        # Manual: Use custom schedule from user grid
+                        if manual_schedule:
+                            # Get current and next state from schedule
+                            current_state = "ON" if manual_schedule[step_index] == 1 else "OFF"
+
+                            if next_step_index < steps:
+                                next_state = "ON" if manual_schedule[next_step_index] == 1 else "OFF"
+                                # Set adapter for next step
+                                if manual_schedule[next_step_index] == 1:
+                                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                                else:
+                                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+                                desc = f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: {next_state}, ETA: {eta:.1f}s)"
+                            else:
+                                # Final step
+                                desc = f"Step {current_step}/{steps} (DoRA: {current_state}, final, ETA: {eta:.1f}s)"
+                        else:
+                            # No schedule - keep DoRA OFF
+                            desc = f"Step {current_step}/{steps} (DoRA: OFF [no schedule], ETA: {eta:.1f}s)"
                 # Handle DoRA start step control (normal mode)
                 elif self.enable_dora and self.dora_loaded and self.pipe is not None:
                     if current_step == self.dora_start_step - 1 and self.dora_start_step > 1:

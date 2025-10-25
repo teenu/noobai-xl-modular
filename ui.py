@@ -70,6 +70,82 @@ def create_interface() -> gr.Blocks:
             border-radius: 8px;
             padding: 15px;
         }
+        .dora-grid-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            padding: 10px;
+            background: var(--background-fill-secondary);
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .dora-cell {
+            width: 18px;
+            height: 18px;
+            background: #dc2626 !important;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .dora-cell.on {
+            background: #16a34a !important;
+        }
+        .dora-cell:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        """,
+        head="""
+        <script>
+        function setupDoraGridHandlers() {
+            setTimeout(function() {
+                const containers = document.querySelectorAll('[id*="dora-grid"][id$="-container"]');
+
+                containers.forEach(function(container) {
+                    if (container.hasAttribute('data-dora-initialized')) return;
+                    container.setAttribute('data-dora-initialized', 'true');
+
+                    container.addEventListener('click', function(e) {
+                        const cell = e.target;
+                        if (!cell.classList.contains('dora-cell')) return;
+
+                        // Toggle class and style
+                        cell.classList.toggle('on');
+
+                        // Update schedule
+                        const cells = container.querySelectorAll('.dora-cell');
+                        const schedule = Array.from(cells).map(c =>
+                            c.classList.contains('on') ? '1' : '0'
+                        );
+                        const scheduleCSV = schedule.join(', ');
+
+                        // Update hidden textbox
+                        const hiddenBox = document.getElementById('dora_manual_schedule_hidden');
+                        if (hiddenBox) {
+                            const input = hiddenBox.querySelector('textarea, input');
+                            if (input) {
+                                input.value = scheduleCSV;
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }
+                    });
+                });
+            }, 500);
+        }
+
+        // Setup on load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupDoraGridHandlers);
+        } else {
+            setupDoraGridHandlers();
+        }
+
+        // Re-setup on mutations
+        const observer = new MutationObserver(setupDoraGridHandlers);
+        setTimeout(function() {
+            observer.observe(document.body, { childList: true, subtree: true });
+        }, 1000);
+        </script>
         """
     ) as demo:
 
@@ -257,10 +333,29 @@ def create_interface() -> gr.Blocks:
 
                             dora_toggle_mode = gr.Radio(
                                 label="🔄 DoRA Toggle Mode",
-                                choices=[("None", None), ("Standard Toggle", "standard"), ("Smart Toggle", "smart")],
+                                choices=[("None", None), ("Standard", "standard"), ("Smart", "smart"), ("Manual", "manual")],
                                 value=None,
                                 visible=default_enable_dora,
-                                info="Standard: ON,OFF throughout. Smart: ON,OFF to step 20, then ON"
+                                info="Standard: ON,OFF throughout. Smart: ON,OFF to step 20, then ON. Manual: Custom grid"
+                            )
+
+                            # Manual DoRA schedule grid (GitHub contributions style)
+                            dora_manual_grid = gr.HTML(
+                                value="",
+                                visible=False,
+                                label="Manual DoRA Schedule"
+                            )
+
+                            # Visible textbox to store manual schedule as CSV string
+                            # Shows the actual schedule and allows manual editing
+                            dora_manual_schedule_state = gr.Textbox(
+                                value="",
+                                visible=False,
+                                label="Manual Schedule (CSV)",
+                                elem_id="dora_manual_schedule_hidden",
+                                interactive=True,
+                                placeholder="e.g., 1, 0, 0, 1, 1, 0",
+                                info="Comma-separated 0/1 values. Click grid cells above or edit manually."
                             )
 
                     steps = gr.Slider(
@@ -371,7 +466,7 @@ def create_interface() -> gr.Blocks:
         gen_inputs = [
             final_prompt, negative_prompt, resolution, cfg_scale, steps,
             rescale_cfg, seed, use_custom_resolution, custom_width,
-            custom_height, auto_randomize_seed, adapter_strength, enable_dora, dora_start_step, dora_toggle_mode
+            custom_height, auto_randomize_seed, adapter_strength, enable_dora, dora_start_step, dora_toggle_mode, dora_manual_schedule_state
         ]
         gen_outputs = [output_image, generation_info, seed]
 
@@ -428,6 +523,43 @@ def create_interface() -> gr.Blocks:
             outputs=[enable_dora, dora_selection]
         )
 
+        # Generate DoRA grid HTML with proper event handling
+        def generate_dora_grid(num_steps, schedule_csv=""):
+            """Generate GitHub-style grid HTML for manual DoRA scheduling."""
+            from utils import parse_manual_dora_schedule, generate_standard_schedule, generate_smart_schedule
+
+            # Parse existing schedule or create default (all OFF)
+            if schedule_csv:
+                schedule, _ = parse_manual_dora_schedule(schedule_csv, num_steps)
+                if schedule is None:
+                    schedule = [0] * num_steps
+            else:
+                schedule = [0] * num_steps
+
+            # Build grid HTML (20 cells per row)
+            cells_html = []
+            for i, state in enumerate(schedule):
+                cell_class = "dora-cell on" if state == 1 else "dora-cell"
+                cells_html.append(f'<div class="{cell_class}" data-index="{i}"></div>')
+
+            # Unique ID for this grid instance
+            import time
+            grid_id = f"dora-grid-{num_steps}-{int(time.time() * 1000)}"
+
+            grid_html = f'''
+            <div id="{grid_id}" style="margin-top: 10px;">
+                <div style="font-weight: bold; margin-bottom: 5px;">Manual DoRA Schedule ({num_steps} steps, 30 per row)</div>
+                <div style="font-size: 12px; color: gray; margin-bottom: 8px;">
+                    Click cells to toggle: <span style="color: #16a34a;">■</span> ON (DoRA enabled) |
+                    <span style="color: #dc2626;">■</span> OFF (DoRA disabled)
+                </div>
+                <div class="dora-grid-container" id="{grid_id}-container" style="max-width: 100%; display: grid; grid-template-columns: repeat(30, 18px); gap: 3px;">
+                    {"".join(cells_html)}
+                </div>
+            </div>
+            '''
+            return grid_html
+
         # DoRA visibility toggle with feedback
         def toggle_dora_visibility(enabled):
             """Handle DoRA toggle with immediate feedback."""
@@ -458,24 +590,54 @@ def create_interface() -> gr.Blocks:
         )
 
         # Toggle mode handler - disable start step when any toggle mode is active
-        def handle_toggle_mode_change(toggle_mode):
-            """Disable DoRA start step when toggle mode is enabled."""
-            if toggle_mode:  # Any toggle mode selected (standard or smart)
-                mode_name = "Standard" if toggle_mode == "standard" else "Smart"
+        def handle_toggle_mode_change(toggle_mode, num_steps, current_schedule):
+            """Handle DoRA toggle mode changes including manual grid visibility."""
+            from utils import generate_standard_schedule, generate_smart_schedule
+
+            if toggle_mode == "manual":
+                # Show grid AND textbox, disable start step
+                grid_html = generate_dora_grid(num_steps, current_schedule)
+                # If no current schedule, initialize with all OFF
+                if not current_schedule or not current_schedule.strip():
+                    current_schedule = ", ".join("0" for _ in range(num_steps))
                 return (
                     gr.update(interactive=False, value=1),  # Reset and disable start step
-                    gr.update(value=f'<div style="color: gray;">⚪ Disabled ({mode_name} toggle active)</div>')
+                    gr.update(value='<div style="color: gray;">⚪ Disabled (Manual toggle active)</div>'),
+                    gr.update(visible=True, value=grid_html),  # Show grid
+                    gr.update(visible=True, value=current_schedule)  # Show and update textbox
+                )
+            elif toggle_mode == "standard":
+                # Hide grid and textbox, auto-populate with standard pattern
+                schedule = generate_standard_schedule(num_steps)
+                schedule_csv = ", ".join(str(x) for x in schedule)
+                return (
+                    gr.update(interactive=False, value=1),
+                    gr.update(value='<div style="color: gray;">⚪ Disabled (Standard toggle active)</div>'),
+                    gr.update(visible=False),  # Hide grid
+                    gr.update(visible=False, value=schedule_csv)  # Hide textbox but set value
+                )
+            elif toggle_mode == "smart":
+                # Hide grid and textbox, auto-populate with smart pattern
+                schedule = generate_smart_schedule(num_steps)
+                schedule_csv = ", ".join(str(x) for x in schedule)
+                return (
+                    gr.update(interactive=False, value=1),
+                    gr.update(value='<div style="color: gray;">⚪ Disabled (Smart toggle active)</div>'),
+                    gr.update(visible=False),  # Hide grid
+                    gr.update(visible=False, value=schedule_csv)  # Hide textbox but set value
                 )
             else:  # None selected
                 return (
                     gr.update(interactive=True),
-                    gr.update(value='<div style="color: green;">✅ Start at step 1</div>')
+                    gr.update(value='<div style="color: green;">✅ Start at step 1</div>'),
+                    gr.update(visible=False),  # Hide grid
+                    gr.update(visible=False, value="")  # Hide textbox and clear
                 )
 
         dora_toggle_mode.change(
             handle_toggle_mode_change,
-            inputs=[dora_toggle_mode],
-            outputs=[dora_start_step, dora_start_step_status]
+            inputs=[dora_toggle_mode, steps, dora_manual_schedule_state],
+            outputs=[dora_start_step, dora_start_step_status, dora_manual_grid, dora_manual_schedule_state]
         )
 
         # Search handlers
@@ -576,6 +738,60 @@ def create_interface() -> gr.Blocks:
             inputs=[steps],
             outputs=[dora_start_step]
         )
+
+        # Update manual grid when steps change (if in manual mode)
+        def update_manual_grid_on_steps_change(toggle_mode, num_steps, current_schedule):
+            """Update the manual DoRA grid when steps slider changes."""
+            if toggle_mode == "manual":
+                # Regenerate grid with new step count
+                grid_html = generate_dora_grid(num_steps, current_schedule)
+                # Parse and extend/truncate schedule
+                from utils import parse_manual_dora_schedule
+                if current_schedule:
+                    schedule, _ = parse_manual_dora_schedule(current_schedule, num_steps)
+                    if schedule:
+                        schedule_csv = ", ".join(str(x) for x in schedule)
+                    else:
+                        schedule_csv = ", ".join("0" for _ in range(num_steps))
+                else:
+                    schedule_csv = ", ".join("0" for _ in range(num_steps))
+                return gr.update(value=grid_html), gr.update(value=schedule_csv)
+            elif toggle_mode == "standard":
+                # Regenerate standard schedule for new step count
+                from utils import generate_standard_schedule
+                schedule = generate_standard_schedule(num_steps)
+                schedule_csv = ", ".join(str(x) for x in schedule)
+                return gr.update(), gr.update(value=schedule_csv)
+            elif toggle_mode == "smart":
+                # Regenerate smart schedule for new step count
+                from utils import generate_smart_schedule
+                schedule = generate_smart_schedule(num_steps)
+                schedule_csv = ", ".join(str(x) for x in schedule)
+                return gr.update(), gr.update(value=schedule_csv)
+            else:
+                # Not in any toggle mode - no update needed
+                return gr.update(), gr.update()
+
+        steps.change(
+            update_manual_grid_on_steps_change,
+            inputs=[dora_toggle_mode, steps, dora_manual_schedule_state],
+            outputs=[dora_manual_grid, dora_manual_schedule_state]
+        )
+
+        # Update grid when textbox is manually edited (only in manual mode)
+        def update_grid_from_textbox(toggle_mode, num_steps, schedule_csv):
+            """Regenerate grid when user manually edits the CSV textbox."""
+            if toggle_mode == "manual":
+                grid_html = generate_dora_grid(num_steps, schedule_csv)
+                return gr.update(value=grid_html)
+            return gr.update()
+
+        dora_manual_schedule_state.change(
+            update_grid_from_textbox,
+            inputs=[dora_toggle_mode, steps, dora_manual_schedule_state],
+            outputs=[dora_manual_grid]
+        )
+
         rescale_cfg.change(
             create_status_updater('rescale'),
             inputs=[rescale_cfg],

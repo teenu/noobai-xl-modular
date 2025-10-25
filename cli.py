@@ -139,6 +139,23 @@ def cli_generate(args):
             print("❌ Please provide a prompt")
             return 1
 
+        # Handle manual DoRA schedule if provided
+        manual_schedule_csv = None
+        if args.enable_dora and args.dora_toggle_mode == "manual":
+            if args.dora_manual_schedule:
+                from utils import parse_manual_dora_schedule
+                manual_schedule, warning = parse_manual_dora_schedule(args.dora_manual_schedule, args.steps)
+                if warning:
+                    print(f"⚠️ {warning}")
+                if manual_schedule:
+                    manual_schedule_csv = args.dora_manual_schedule
+                    print(f"🎯 Using manual DoRA schedule ({len(manual_schedule)} steps)")
+                else:
+                    print("⚠️ Manual DoRA schedule is invalid - DoRA will be OFF for all steps")
+            else:
+                print("⚠️ Manual toggle mode selected but no schedule provided (--dora-manual-schedule)")
+                print("   DoRA will be OFF for all steps")
+
         # Generate image
         print(f"🎨 Generating image...")
         print(f"   Prompt: {prompt}")
@@ -162,6 +179,7 @@ def cli_generate(args):
             enable_dora=args.enable_dora,
             dora_start_step=args.dora_start_step if args.enable_dora else None,
             dora_toggle_mode=args.dora_toggle_mode if args.enable_dora else None,
+            dora_manual_schedule=manual_schedule_csv if args.enable_dora else None,
             progress_callback=progress_callback
         )
 
@@ -203,6 +221,9 @@ Examples:
   %(prog)s --cli --prompt "cat girl, anime"        # CLI generation
   %(prog)s --cli --prompt "dragon" --steps 40      # CLI with custom steps
   %(prog)s --cli --prompt "landscape" --width 1024 --height 768  # Custom resolution
+  %(prog)s --cli --prompt "portrait" --enable-dora --dora-toggle-mode standard  # DoRA standard toggle
+  %(prog)s --cli --prompt "portrait" --enable-dora --dora-toggle-mode smart     # DoRA smart toggle
+  %(prog)s --cli --prompt "portrait" --enable-dora --dora-toggle-mode manual --dora-manual-schedule "1, 0, 0, 1"  # DoRA manual toggle
   %(prog)s --list-dora-adapters                     # List available DoRA adapters
   %(prog)s --cli --prompt "anime girl" --enable-dora  # CLI with DoRA adapter (auto-detect)
   %(prog)s --cli --prompt "fantasy" --enable-dora --dora-adapter 0  # Select by index
@@ -330,9 +351,15 @@ Examples:
     cli_group.add_argument(
         "--dora-toggle-mode",
         type=str,
-        choices=["standard", "smart"],
+        choices=["standard", "smart", "manual"],
         default=None,
-        help="DoRA toggle mode. 'standard': ON,OFF,ON,OFF throughout. 'smart': ON,OFF,ON,OFF through step 20, then ON for remainder"
+        help="DoRA toggle mode. 'standard': ON,OFF,ON,OFF throughout. 'smart': ON,OFF,ON,OFF through step 20, then ON for remainder. 'manual': use custom CSV schedule"
+    )
+    cli_group.add_argument(
+        "--dora-manual-schedule",
+        type=str,
+        default=None,
+        help="Manual DoRA schedule as CSV (e.g., '1, 0, 0, 1'). Only used with --dora-toggle-mode manual. Format: comma+space-separated 0/1 values. If entries < steps: missing = 0 (OFF). If entries > steps: extras ignored. Non-0/1 treated as 0."
     )
     cli_group.add_argument(
         "--verbose",
