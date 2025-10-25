@@ -251,6 +251,10 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
 
     with _engine_lock:
         try:
+            # Prevent teardown during active generation to avoid race condition
+            if state_manager.is_generating():
+                return "❌ Cannot reinitialize: Image generation in progress. Please wait for completion or interrupt first."
+
             # COMPREHENSIVE TEARDOWN of existing engine before fresh initialization
             if engine is not None:
                 logger.info("Performing comprehensive teardown of previous engine instance")
@@ -546,6 +550,7 @@ def generate_image_with_progress(
 
 def finish_generation() -> Tuple[gr.update, gr.update]:
     """Finish generation UI update."""
+    state_manager.set_state(GenerationState.IDLE)
     return gr.update(visible=False), gr.update(value="🎨 Generate Image", interactive=True)
 
 def interrupt_generation() -> Tuple[gr.update, gr.update]:
