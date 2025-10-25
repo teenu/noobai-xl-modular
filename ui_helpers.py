@@ -10,6 +10,7 @@ import re
 import gc
 import time
 import gradio as gr
+from threading import Lock
 from typing import Tuple, Optional, List
 from config import (
     logger, MODEL_CONFIG, GEN_CONFIG, SEARCH_CONFIG, OPTIMAL_SETTINGS,
@@ -29,8 +30,9 @@ from engine import NoobAIEngine
 # GLOBAL ENGINE INSTANCE
 # ============================================================================
 
-# Global engine instance
+# Global engine instance with thread-safe access
 engine: Optional[NoobAIEngine] = None
+_engine_lock = Lock()
 
 # ============================================================================
 # UI HELPER FUNCTIONS
@@ -229,91 +231,94 @@ def connect_search_events(
 def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "") -> str:
     """Initialize the NoobAI engine with comprehensive teardown of previous instance."""
     global engine
-    try:
-        # COMPREHENSIVE TEARDOWN of existing engine before fresh initialization
-        if engine is not None:
-            logger.info("Performing comprehensive teardown of previous engine instance")
 
-            try:
-                # Full engine teardown with all cleanup
-                engine.teardown_engine()
+    with _engine_lock:
+        try:
+            # COMPREHENSIVE TEARDOWN of existing engine before fresh initialization
+            if engine is not None:
+                logger.info("Performing comprehensive teardown of previous engine instance")
 
-                # Explicit deletion and nullification
-                del engine
-                engine = None
+                try:
+                    # Full engine teardown with all cleanup
+                    engine.teardown_engine()
 
-                # Additional global cleanup
-                resource_pool.clear()
+                    # Explicit deletion and nullification
+                    del engine
+                    engine = None
 
-                # Force garbage collection after teardown
-                gc.collect()
+                    # Additional global cleanup
+                    resource_pool.clear()
 
-                # Brief pause to ensure complete cleanup
-                time.sleep(0.1)
+                    # Force garbage collection after teardown
+                    gc.collect()
 
-                logger.info("Previous engine instance completely torn down")
+                    # Brief pause to ensure complete cleanup
+                    time.sleep(0.1)
 
-            except Exception as e:
-                logger.error(f"Error during engine teardown: {e}")
-                # Force reset even if teardown fails
-                engine = None
-                resource_pool.clear()
-                gc.collect()
-        # Validate model path
-        is_valid, validated_model_path = validate_model_path(model_path)
-        if not is_valid:
-            return f"❌ {validated_model_path}"
+                    logger.info("Previous engine instance completely torn down")
 
-        # Handle DoRA path if enabled
-        dora_path_to_use = None
-        dora_status = ""
+                except Exception as e:
+                    logger.error(f"Error during engine teardown: {e}")
+                    # Force reset even if teardown fails
+                    engine = None
+                    resource_pool.clear()
+                    gc.collect()
 
-        if enable_dora:
-            if dora_selection and dora_selection != "None":
-                # Use selected adapter from dropdown
-                adapter_info = get_dora_adapter_by_name(dora_selection)
-                if adapter_info:
-                    dora_path_to_use = adapter_info['path']
-                    dora_status = f"\n🎯 DoRA: {adapter_info['display_name']}"
+            # Validate model path
+            is_valid, validated_model_path = validate_model_path(model_path)
+            if not is_valid:
+                return f"❌ {validated_model_path}"
+
+            # Handle DoRA path if enabled
+            dora_path_to_use = None
+            dora_status = ""
+
+            if enable_dora:
+                if dora_selection and dora_selection != "None":
+                    # Use selected adapter from dropdown
+                    adapter_info = get_dora_adapter_by_name(dora_selection)
+                    if adapter_info:
+                        dora_path_to_use = adapter_info['path']
+                        dora_status = f"\n🎯 DoRA: {adapter_info['display_name']}"
+                    else:
+                        dora_status = f"\n⚠️ DoRA: Selected adapter '{dora_selection}' not found"
+                elif dora_path.strip():
+                    # Validate provided DoRA path (manual override)
+                    dora_valid, dora_result = validate_dora_path(dora_path)
+                    if dora_valid:
+                        dora_path_to_use = dora_result
+                        precision = detect_adapter_precision(dora_result)
+                        dora_status = f"\n🎯 DoRA: {os.path.basename(dora_result)} ({precision})"
+                    else:
+                        dora_status = f"\n⚠️ DoRA Error: {dora_result}"
                 else:
-                    dora_status = f"\n⚠️ DoRA: Selected adapter '{dora_selection}' not found"
-            elif dora_path.strip():
-                # Validate provided DoRA path (manual override)
-                dora_valid, dora_result = validate_dora_path(dora_path)
-                if dora_valid:
-                    dora_path_to_use = dora_result
-                    precision = detect_adapter_precision(dora_result)
-                    dora_status = f"\n🎯 DoRA: {os.path.basename(dora_result)} ({precision})"
-                else:
-                    dora_status = f"\n⚠️ DoRA Error: {dora_result}"
-            else:
-                # Auto-detect DoRA path
-                auto_dora_path = find_dora_path()
-                if auto_dora_path:
-                    dora_path_to_use = auto_dora_path
-                    precision = detect_adapter_precision(auto_dora_path)
-                    dora_status = f"\n🎯 DoRA: {os.path.basename(auto_dora_path)} ({precision}, auto-detected)"
-                else:
-                    dora_status = "\n⚠️ DoRA: Enabled but no valid DoRA file found"
+                    # Auto-detect DoRA path
+                    auto_dora_path = find_dora_path()
+                    if auto_dora_path:
+                        dora_path_to_use = auto_dora_path
+                        precision = detect_adapter_precision(auto_dora_path)
+                        dora_status = f"\n🎯 DoRA: {os.path.basename(auto_dora_path)} ({precision}, auto-detected)"
+                    else:
+                        dora_status = "\n⚠️ DoRA: Enabled but no valid DoRA file found"
 
-        # Initialize engine
-        engine = NoobAIEngine(
-            model_path=validated_model_path,
-            enable_dora=enable_dora,
-            dora_path=dora_path_to_use,
-            dora_start_step=OPTIMAL_SETTINGS['dora_start_step']
-        )
+            # Initialize engine
+            engine = NoobAIEngine(
+                model_path=validated_model_path,
+                enable_dora=enable_dora,
+                dora_path=dora_path_to_use,
+                dora_start_step=OPTIMAL_SETTINGS['dora_start_step']
+            )
 
-        model_size = os.path.getsize(validated_model_path)
-        status_msg = f"✅ Engine initialized!\n📊 Model: {format_file_size(model_size)}{dora_status}"
+            model_size = os.path.getsize(validated_model_path)
+            status_msg = f"✅ Engine initialized!\n📊 Model: {format_file_size(model_size)}{dora_status}"
 
-        return status_msg
+            return status_msg
 
-    except Exception as e:
-        engine = None
-        error_msg = get_user_friendly_error(e)
-        logger.error(f"Engine initialization failed: {e}")
-        return f"❌ Initialization failed: {error_msg}"
+        except Exception as e:
+            engine = None
+            error_msg = get_user_friendly_error(e)
+            logger.error(f"Engine initialization failed: {e}")
+            return f"❌ Initialization failed: {error_msg}"
 
 def find_model_path() -> Optional[str]:
     """Search for the model file in common locations."""
@@ -412,8 +417,11 @@ def generate_image_with_progress(
 ) -> Tuple[Optional[str], str, str]:
     """Generate image with progress tracking and return file path for hash consistency."""
     try:
-        # Check engine
-        if not (engine and engine.is_initialized):
+        # Check engine with thread-safe access
+        with _engine_lock:
+            engine_ready = engine is not None and engine.is_initialized
+
+        if not engine_ready:
             state_manager.set_state(GenerationState.ERROR)
             return None, "❌ Engine not initialized", seed
 

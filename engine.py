@@ -410,9 +410,11 @@ class NoobAIEngine:
                 else:
                     logger.warning("Manual toggle mode selected but no schedule provided - DoRA will be OFF for all steps")
 
-            # Validate toggle mode and start step don't conflict
-            if dora_toggle_mode and self.enable_dora and self.dora_loaded and self.dora_start_step > 1:
-                logger.warning(f"Toggle mode '{dora_toggle_mode}' enabled with dora_start_step={self.dora_start_step}. Toggle mode will override start_step setting.")
+            # Enforce toggle mode and start step mutual exclusivity
+            if dora_toggle_mode and self.enable_dora and self.dora_loaded:
+                if self.dora_start_step > 1:
+                    logger.warning(f"Toggle mode '{dora_toggle_mode}' enabled with dora_start_step={self.dora_start_step}. Resetting start_step to 1.")
+                    self.dora_start_step = 1
 
             # Pre-deactivate DoRA if start step is later than step 1
             # This ensures DoRA is inactive from the beginning when delayed activation is requested
@@ -663,20 +665,22 @@ class NoobAIEngine:
                 if i == 0:
                     logger.info(f"Garbage collection freed {collected} objects")
 
-            # 6. Reset all state variables
-            self.dora_loaded = False
-            self.dora_path = None
-            self.is_initialized = False
-            self._device = None
-
             logger.info("Engine teardown completed successfully")
 
         except Exception as e:
             logger.error(f"Error during comprehensive engine teardown: {e}")
-            # Ensure critical state is reset even if teardown fails partially
-            self.pipe = None
-            self.dora_loaded = False
-            self.is_initialized = False
+        finally:
+            # CRITICAL: Always reset state variables even if teardown partially fails
+            # This ensures the engine doesn't remain in an inconsistent state
+            try:
+                self.pipe = None
+                self.dora_loaded = False
+                self.dora_path = None
+                self.is_initialized = False
+                # Note: Preserve self._device for potential re-initialization
+                logger.info("Engine state variables reset in finally block")
+            except Exception as e:
+                logger.error(f"Critical error in teardown finally block: {e}")
 
     def clear_memory(self):
         """Clear GPU/memory caches."""
