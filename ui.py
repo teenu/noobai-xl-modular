@@ -548,12 +548,12 @@ def create_interface() -> gr.Blocks:
 
             grid_html = f'''
             <div id="{grid_id}" style="margin-top: 10px;">
-                <div style="font-weight: bold; margin-bottom: 5px;">Manual DoRA Schedule ({num_steps} steps, 30 per row)</div>
+                <div style="font-weight: bold; margin-bottom: 5px;">Manual DoRA Schedule ({num_steps} steps, 20 per row)</div>
                 <div style="font-size: 12px; color: gray; margin-bottom: 8px;">
                     Click cells to toggle: <span style="color: #16a34a;">■</span> ON (DoRA enabled) |
                     <span style="color: #dc2626;">■</span> OFF (DoRA disabled)
                 </div>
-                <div class="dora-grid-container" id="{grid_id}-container" style="max-width: 100%; display: grid; grid-template-columns: repeat(30, 18px); gap: 3px;">
+                <div class="dora-grid-container" id="{grid_id}-container" style="max-width: 100%; display: grid; grid-template-columns: repeat(20, 18px); gap: 3px;">
                     {"".join(cells_html)}
                 </div>
             </div>
