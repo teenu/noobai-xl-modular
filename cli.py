@@ -134,8 +134,8 @@ def cli_generate(args):
             return 1
 
         # Prepare prompt
-        prompt = args.prompt
-        if not prompt.strip():
+        prompt = (args.prompt or "").strip()
+        if not prompt:
             print("❌ Please provide a prompt")
             return 1
 
@@ -289,7 +289,6 @@ Examples:
     cli_group.add_argument(
         "--prompt",
         type=str,
-        required="--cli" in sys.argv,
         help="Positive prompt for image generation"
     )
     cli_group.add_argument(

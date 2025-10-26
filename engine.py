@@ -51,7 +51,8 @@ class NoobAIEngine:
                 logger.info(f"Initializing NoobAI engine with model: {self.model_path}")
 
                 # Detect device
-                if torch.backends.mps.is_available():
+                mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+                if mps_available:
                     self._device = "mps"
                 elif torch.cuda.is_available():
                     self._device = "cuda"
@@ -789,7 +790,10 @@ class NoobAIEngine:
             # Setup seed and generator
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
-            generator = torch.Generator(self._device).manual_seed(seed)
+
+            # Torch generators do not support MPS; fall back to CPU in that case.
+            generator_device = "cuda" if self._device == "cuda" else "cpu"
+            generator = torch.Generator(device=generator_device).manual_seed(seed)
 
             # Parse manual DoRA schedule
             manual_schedule, _ = self._parse_manual_dora_schedule(

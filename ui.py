@@ -268,14 +268,16 @@ def create_interface() -> gr.Blocks:
                             value=OPTIMAL_SETTINGS['width'],
                             minimum=GEN_CONFIG.MIN_RESOLUTION,
                             maximum=GEN_CONFIG.MAX_RESOLUTION,
-                            step=64
+                            step=64,
+                            info="Must be divisible by 8"
                         )
                         custom_height = gr.Number(
                             label="Height",
                             value=OPTIMAL_SETTINGS['height'],
                             minimum=GEN_CONFIG.MIN_RESOLUTION,
                             maximum=GEN_CONFIG.MAX_RESOLUTION,
-                            step=64
+                            step=64,
+                            info="Must be divisible by 8"
                         )
 
                 # Generation parameters
@@ -526,15 +528,21 @@ def create_interface() -> gr.Blocks:
         # Generate DoRA grid HTML with proper event handling
         def generate_dora_grid(num_steps, schedule_csv=""):
             """Generate GitHub-style grid HTML for manual DoRA scheduling."""
-            from utils import parse_manual_dora_schedule, generate_standard_schedule, generate_smart_schedule
+            from utils import parse_manual_dora_schedule
+
+            # Gradio sliders emit floats; normalize and guard against zero/negatives.
+            try:
+                steps_int = max(int(num_steps), 1)
+            except (TypeError, ValueError):
+                steps_int = 1
 
             # Parse existing schedule or create default (all OFF)
             if schedule_csv:
-                schedule, _ = parse_manual_dora_schedule(schedule_csv, num_steps)
+                schedule, _ = parse_manual_dora_schedule(schedule_csv, steps_int)
                 if schedule is None:
-                    schedule = [0] * num_steps
+                    schedule = [0] * steps_int
             else:
-                schedule = [0] * num_steps
+                schedule = [0] * steps_int
 
             # Build grid HTML (20 cells per row)
             cells_html = []
@@ -544,11 +552,11 @@ def create_interface() -> gr.Blocks:
 
             # Unique ID for this grid instance
             import time
-            grid_id = f"dora-grid-{num_steps}-{int(time.time() * 1000)}"
+            grid_id = f"dora-grid-{steps_int}-{int(time.time() * 1000)}"
 
             grid_html = f'''
             <div id="{grid_id}" style="margin-top: 10px;">
-                <div style="font-weight: bold; margin-bottom: 5px;">Manual DoRA Schedule ({num_steps} steps, 20 per row)</div>
+                <div style="font-weight: bold; margin-bottom: 5px;">Manual DoRA Schedule ({steps_int} steps, 20 per row)</div>
                 <div style="font-size: 12px; color: gray; margin-bottom: 8px;">
                     Click cells to toggle: <span style="color: #16a34a;">■</span> ON (DoRA enabled) |
                     <span style="color: #dc2626;">■</span> OFF (DoRA disabled)
@@ -594,12 +602,17 @@ def create_interface() -> gr.Blocks:
             """Handle DoRA toggle mode changes including manual grid visibility."""
             from utils import generate_standard_schedule, generate_smart_schedule
 
+            try:
+                steps_int = max(int(num_steps), 1)
+            except (TypeError, ValueError):
+                steps_int = 1
+
             if toggle_mode == "manual":
                 # Show grid AND textbox, disable start step
-                grid_html = generate_dora_grid(num_steps, current_schedule)
+                grid_html = generate_dora_grid(steps_int, current_schedule)
                 # If no current schedule, initialize with all OFF
                 if not current_schedule or not current_schedule.strip():
-                    current_schedule = ", ".join("0" for _ in range(num_steps))
+                    current_schedule = ", ".join("0" for _ in range(steps_int))
                 return (
                     gr.update(interactive=False, value=1),  # Reset and disable start step
                     gr.update(value='<div style="color: gray;">⚪ Disabled (Manual toggle active)</div>'),
@@ -608,7 +621,7 @@ def create_interface() -> gr.Blocks:
                 )
             elif toggle_mode == "standard":
                 # Hide grid and textbox, auto-populate with standard pattern
-                schedule = generate_standard_schedule(num_steps)
+                schedule = generate_standard_schedule(steps_int)
                 schedule_csv = ", ".join(str(x) for x in schedule)
                 return (
                     gr.update(interactive=False, value=1),
@@ -618,7 +631,7 @@ def create_interface() -> gr.Blocks:
                 )
             elif toggle_mode == "smart":
                 # Hide grid and textbox, auto-populate with smart pattern
-                schedule = generate_smart_schedule(num_steps)
+                schedule = generate_smart_schedule(steps_int)
                 schedule_csv = ", ".join(str(x) for x in schedule)
                 return (
                     gr.update(interactive=False, value=1),
@@ -742,30 +755,35 @@ def create_interface() -> gr.Blocks:
         # Update manual grid when steps change (if in manual mode)
         def update_manual_grid_on_steps_change(toggle_mode, num_steps, current_schedule):
             """Update the manual DoRA grid when steps slider changes."""
+            try:
+                steps_int = max(int(num_steps), 1)
+            except (TypeError, ValueError):
+                steps_int = 1
+
             if toggle_mode == "manual":
                 # Regenerate grid with new step count
-                grid_html = generate_dora_grid(num_steps, current_schedule)
+                grid_html = generate_dora_grid(steps_int, current_schedule)
                 # Parse and extend/truncate schedule
                 from utils import parse_manual_dora_schedule
                 if current_schedule:
-                    schedule, _ = parse_manual_dora_schedule(current_schedule, num_steps)
+                    schedule, _ = parse_manual_dora_schedule(current_schedule, steps_int)
                     if schedule:
                         schedule_csv = ", ".join(str(x) for x in schedule)
                     else:
-                        schedule_csv = ", ".join("0" for _ in range(num_steps))
+                        schedule_csv = ", ".join("0" for _ in range(steps_int))
                 else:
-                    schedule_csv = ", ".join("0" for _ in range(num_steps))
+                    schedule_csv = ", ".join("0" for _ in range(steps_int))
                 return gr.update(value=grid_html), gr.update(value=schedule_csv)
             elif toggle_mode == "standard":
                 # Regenerate standard schedule for new step count
                 from utils import generate_standard_schedule
-                schedule = generate_standard_schedule(num_steps)
+                schedule = generate_standard_schedule(steps_int)
                 schedule_csv = ", ".join(str(x) for x in schedule)
                 return gr.update(), gr.update(value=schedule_csv)
             elif toggle_mode == "smart":
                 # Regenerate smart schedule for new step count
                 from utils import generate_smart_schedule
-                schedule = generate_smart_schedule(num_steps)
+                schedule = generate_smart_schedule(steps_int)
                 schedule_csv = ", ".join(str(x) for x in schedule)
                 return gr.update(), gr.update(value=schedule_csv)
             else:
@@ -782,7 +800,11 @@ def create_interface() -> gr.Blocks:
         def update_grid_from_textbox(toggle_mode, num_steps, schedule_csv):
             """Regenerate grid when user manually edits the CSV textbox."""
             if toggle_mode == "manual":
-                grid_html = generate_dora_grid(num_steps, schedule_csv)
+                try:
+                    steps_int = max(int(num_steps), 1)
+                except (TypeError, ValueError):
+                    steps_int = 1
+                grid_html = generate_dora_grid(steps_int, schedule_csv)
                 return gr.update(value=grid_html)
             return gr.update()
 

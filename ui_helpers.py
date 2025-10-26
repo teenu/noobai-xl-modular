@@ -111,9 +111,13 @@ def validate_parameters(w: int, h: int, s: int, c: float, r: float, a: Optional[
 
     if not (GEN_CONFIG.MIN_RESOLUTION <= w <= GEN_CONFIG.MAX_RESOLUTION):
         errors.append(f"Width must be {GEN_CONFIG.MIN_RESOLUTION}-{GEN_CONFIG.MAX_RESOLUTION}")
+    elif w % 8 != 0:
+        errors.append("Width must be divisible by 8 (diffusion requirement)")
 
     if not (GEN_CONFIG.MIN_RESOLUTION <= h <= GEN_CONFIG.MAX_RESOLUTION):
         errors.append(f"Height must be {GEN_CONFIG.MIN_RESOLUTION}-{GEN_CONFIG.MAX_RESOLUTION}")
+    elif h % 8 != 0:
+        errors.append("Height must be divisible by 8 (diffusion requirement)")
 
     if not (GEN_CONFIG.MIN_STEPS <= s <= GEN_CONFIG.MAX_STEPS):
         errors.append(f"Steps must be {GEN_CONFIG.MIN_STEPS}-{GEN_CONFIG.MAX_STEPS}")
@@ -462,11 +466,22 @@ def generate_image_with_progress(
             state_manager.set_state(GenerationState.ERROR)
             return None, "❌ Please enter a prompt", seed
 
+        def _coerce_int(value, label):
+            try:
+                coerced = int(value)
+                return coerced
+            except (TypeError, ValueError):
+                raise InvalidParameterError(f"{label} must be an integer value")
+
         # Parse resolution
         if use_custom_resolution:
-            width, height = custom_width, custom_height
+            width = _coerce_int(custom_width, "Custom width")
+            height = _coerce_int(custom_height, "Custom height")
         else:
             width, height = parse_resolution_string(resolution)
+
+        steps = _coerce_int(steps, "Steps")
+        dora_start_step = _coerce_int(dora_start_step, "DoRA start step")
 
         # Validate parameters
         param_error = validate_parameters(width, height, steps, cfg_scale, rescale_cfg, adapter_strength, dora_start_step)
