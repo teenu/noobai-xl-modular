@@ -131,6 +131,13 @@ class ResourcePool:
     def clear(self):
         """Enhanced resource pool clearing with proper resource cleanup and leak prevention."""
         with self._lock:
+            # First, retry any previously failed cleanups
+            if self._failed_cleanups:
+                logger.info(f"Retrying cleanup of {len(self._failed_cleanups)} previously failed resource(s)")
+                retry_count = self._retry_failed_cleanups_internal()
+                if retry_count > 0:
+                    logger.info(f"Successfully cleaned {retry_count} previously failed resource(s)")
+
             successfully_cleaned = []
             failed_to_clean = {}
 
@@ -183,34 +190,38 @@ class ResourcePool:
         with self._lock:
             return self._failed_cleanups.copy()
 
+    def _retry_failed_cleanups_internal(self) -> int:
+        """Internal method to retry failed cleanups (assumes lock is already held)."""
+        if not self._failed_cleanups:
+            return 0
+
+        successfully_cleaned = []
+
+        for key, info in list(self._failed_cleanups.items()):
+            resource = info['resource']
+            try:
+                if hasattr(resource, 'close'):
+                    resource.close()
+                elif hasattr(resource, 'cleanup'):
+                    resource.cleanup()
+                successfully_cleaned.append(key)
+                logger.info(f"Successfully cleaned previously failed resource '{key}' on retry")
+            except Exception as e:
+                logger.warning(f"Retry cleanup failed for resource '{key}': {e}")
+
+        # Remove successfully cleaned resources from failed list
+        for key in successfully_cleaned:
+            del self._failed_cleanups[key]
+
+        if successfully_cleaned:
+            gc.collect()
+
+        return len(successfully_cleaned)
+
     def retry_failed_cleanups(self) -> int:
         """Retry cleanup of previously failed resources. Returns number of resources successfully cleaned."""
         with self._lock:
-            if not self._failed_cleanups:
-                return 0
-
-            successfully_cleaned = []
-
-            for key, info in list(self._failed_cleanups.items()):
-                resource = info['resource']
-                try:
-                    if hasattr(resource, 'close'):
-                        resource.close()
-                    elif hasattr(resource, 'cleanup'):
-                        resource.cleanup()
-                    successfully_cleaned.append(key)
-                    logger.info(f"Successfully cleaned previously failed resource '{key}' on retry")
-                except Exception as e:
-                    logger.warning(f"Retry cleanup failed for resource '{key}': {e}")
-
-            # Remove successfully cleaned resources from failed list
-            for key in successfully_cleaned:
-                del self._failed_cleanups[key]
-
-            if successfully_cleaned:
-                gc.collect()
-
-            return len(successfully_cleaned)
+            return self._retry_failed_cleanups_internal()
 
 # Global resource pool
 resource_pool = ResourcePool()

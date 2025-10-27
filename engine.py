@@ -904,11 +904,9 @@ class NoobAIEngine:
             except Exception as e:
                 logger.warning(f"Error clearing device caches: {e}")
 
-            # 5. Force garbage collection multiple times for thorough cleanup
-            for i in range(3):
-                collected = gc.collect()
-                if i == 0:
-                    logger.info(f"Garbage collection freed {collected} objects")
+            # 5. Force garbage collection to free released resources
+            collected = gc.collect()
+            logger.info(f"Garbage collection freed {collected} objects")
 
             logger.info("Engine teardown completed successfully")
 

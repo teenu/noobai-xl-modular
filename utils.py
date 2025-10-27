@@ -162,17 +162,20 @@ def normalize_text(text: str) -> str:
     return unicodedata.normalize('NFC', text.strip())
 
 def format_file_size(size_bytes: int) -> str:
-    """Format file size in human-readable format."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1000.0:
+    """Format file size in human-readable binary format (1 KiB = 1024 bytes)."""
+    for unit in ['B', 'KiB', 'MiB', 'GiB']:
+        if size_bytes < 1024.0:
             return f"{size_bytes:.2f} {unit}"
-        size_bytes /= 1000.0
-    return f"{size_bytes:.2f} TB"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} TiB"
 
 def calculate_image_hash(file_path: str) -> str:
-    """Calculate MD5 hash of an image file."""
+    """Calculate MD5 hash of an image file using memory-efficient chunked reading."""
+    hash_md5 = hashlib.md5()
     with open(file_path, 'rb') as f:
-        return hashlib.md5(f.read()).hexdigest()
+        for chunk in iter(lambda: f.read(65536), b""):  # 64KB chunks
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
 def validate_dora_path(path: str) -> Tuple[bool, str]:
     """Validate DoRA adapter path with comprehensive checks including directory containment."""
