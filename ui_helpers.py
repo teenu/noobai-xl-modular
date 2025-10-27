@@ -448,7 +448,7 @@ def start_generation() -> Tuple[gr.update, gr.update]:
 def generate_image_with_progress(
     prompt: str, negative_prompt: str, resolution: str, cfg_scale: float, steps: int,
     rescale_cfg: float, seed: str, use_custom_resolution: bool, custom_width: int,
-    custom_height: int, auto_randomize_seed: bool, adapter_strength: float, enable_dora: bool, dora_start_step: int, dora_toggle_mode: Optional[str], dora_manual_schedule: str, progress=gr.Progress()
+    custom_height: int, auto_randomize_seed: bool, adapter_strength: float, enable_dora: bool, dora_start_step: int, progress=gr.Progress()
 ) -> Tuple[Optional[str], str, str]:
     """Generate image with progress tracking and return file path for hash consistency."""
     try:
@@ -506,13 +506,7 @@ def generate_image_with_progress(
 
         # Debug: Log DoRA settings
         if enable_dora:
-            if dora_toggle_mode == "manual":
-                logger.info(f"DoRA enabled: toggle_mode=manual")
-                logger.info(f"Manual DoRA schedule CSV: {dora_manual_schedule}")
-            elif dora_toggle_mode:
-                logger.info(f"DoRA enabled: toggle_mode={dora_toggle_mode}")
-            else:
-                logger.info(f"DoRA enabled: normal mode, start_step={dora_start_step}")
+            logger.info(f"DoRA enabled: normal mode, start_step={dora_start_step}")
 
         image, final_seed, info = current_engine.generate(
             prompt=prompt,
@@ -526,8 +520,6 @@ def generate_image_with_progress(
             adapter_strength=adapter_strength if enable_dora else None,
             enable_dora=enable_dora,
             dora_start_step=dora_start_step if enable_dora else None,
-            dora_toggle_mode=dora_toggle_mode if enable_dora else None,
-            dora_manual_schedule=dora_manual_schedule if enable_dora else None,
             progress_callback=lambda p, d: progress(p, desc=d)
         )
 
