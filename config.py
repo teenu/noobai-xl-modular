@@ -162,16 +162,19 @@ DEFAULT_NEGATIVE_PROMPT = "worst aesthetic, worst quality, lowres, scan artifact
 DEFAULT_POSITIVE_PREFIX = "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres"
 
 # Model search paths
+# Use absolute paths to avoid CWD dependency issues
+_script_dir = os.path.dirname(os.path.abspath(__file__))
 MODEL_SEARCH_PATHS = [
-    "./NoobAI-XL-Vpred-v1.0.safetensors",  # Current directory
-    "./models/NoobAI-XL-Vpred-v1.0.safetensors",  # Models subdirectory
+    os.path.join(_script_dir, "NoobAI-XL-Vpred-v1.0.safetensors"),  # Script directory
+    os.path.join(_script_dir, "models", "NoobAI-XL-Vpred-v1.0.safetensors"),  # Models subdirectory
     os.path.join(os.path.expanduser("~"), "Downloads", "NoobAI-XL-Vpred-v1.0.safetensors"),  # User Downloads
     os.path.join(os.path.expanduser("~"), "Models", "NoobAI-XL-Vpred-v1.0.safetensors"),  # User Models
 ]
 
 # DoRA adapter search directories
+# Use absolute paths to avoid CWD dependency issues
 DORA_SEARCH_DIRECTORIES = [
-    "./dora/",  # Dora subdirectory in current directory
-    "./",  # Current directory root
+    os.path.join(_script_dir, "dora"),  # Dora subdirectory in script directory
+    _script_dir,  # Script directory root
     os.path.join(os.path.expanduser("~"), "Downloads", "dora")  # User Downloads/dora
 ]

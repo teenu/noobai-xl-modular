@@ -176,10 +176,17 @@ class ResourcePool:
                 del self._resources[key]
 
             # Track failed cleanups for potential retry or debugging
+            # IMPORTANT: Store only metadata, not resource references, to prevent memory leaks
             if failed_to_clean:
-                self._failed_cleanups.update(failed_to_clean)
+                for key, info in failed_to_clean.items():
+                    # Store only error message and timestamp, not the resource object
+                    self._failed_cleanups[key] = {
+                        'error': info['error'],
+                        'timestamp': time.time(),
+                        'type': type(info['resource']).__name__
+                    }
                 logger.error(f"Resource pool has {len(failed_to_clean)} resource(s) that failed cleanup: {list(failed_to_clean.keys())}")
-                logger.error("These resources remain in memory to prevent leaks. Manual cleanup may be required.")
+                logger.error("Failed resource metadata stored for debugging. Resources released to GC.")
 
             # Force garbage collection to clean up successfully released resources
             collected = gc.collect()
@@ -196,28 +203,23 @@ class ResourcePool:
         if not self._failed_cleanups:
             return 0
 
-        successfully_cleaned = []
+        # Since we no longer store resource references, we can only clear stale metadata
+        # Remove entries older than 1 hour (likely already GC'd)
+        current_time = time.time()
+        stale_entries = []
 
         for key, info in list(self._failed_cleanups.items()):
-            resource = info['resource']
-            try:
-                if hasattr(resource, 'close'):
-                    resource.close()
-                elif hasattr(resource, 'cleanup'):
-                    resource.cleanup()
-                successfully_cleaned.append(key)
-                logger.info(f"Successfully cleaned previously failed resource '{key}' on retry")
-            except Exception as e:
-                logger.warning(f"Retry cleanup failed for resource '{key}': {e}")
+            if current_time - info['timestamp'] > 3600:  # 1 hour
+                stale_entries.append(key)
 
-        # Remove successfully cleaned resources from failed list
-        for key in successfully_cleaned:
+        for key in stale_entries:
             del self._failed_cleanups[key]
+            logger.info(f"Removed stale failed cleanup metadata for '{key}'")
 
-        if successfully_cleaned:
+        if stale_entries:
             gc.collect()
 
-        return len(successfully_cleaned)
+        return len(stale_entries)
 
     def retry_failed_cleanups(self) -> int:
         """Retry cleanup of previously failed resources. Returns number of resources successfully cleaned."""

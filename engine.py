@@ -63,7 +63,27 @@ class NoobAIEngine:
 
                 # Detect base model precision and use consistently
                 base_precision = detect_base_model_precision(self.model_path)
-                inference_dtype = base_precision if self._device != "cpu" else torch.float32
+
+                # Device-aware precision compatibility check
+                if self._device == "cpu":
+                    inference_dtype = torch.float32
+                elif self._device == "cuda":
+                    # Validate GPU supports the detected precision
+                    if base_precision == torch.bfloat16:
+                        # Check if GPU has BF16 capability (Ampere/Ada architecture or newer)
+                        if hasattr(torch.cuda, 'is_bf16_supported') and torch.cuda.is_bf16_supported():
+                            inference_dtype = torch.bfloat16
+                        else:
+                            logger.warning(
+                                f"GPU does not support BF16 (requires Ampere architecture or newer). "
+                                f"Falling back to FP16 for compatibility."
+                            )
+                            inference_dtype = torch.float16
+                    else:
+                        inference_dtype = base_precision
+                else:
+                    # MPS (Apple Silicon) supports BF16 natively
+                    inference_dtype = base_precision
 
                 logger.info(f"Using {inference_dtype} precision on {self._device.upper()}")
 
@@ -138,9 +158,6 @@ class NoobAIEngine:
             elif adapter_precision == "fp16" and pipeline_dtype == torch.float32:
                 logger.info("DoRA adapter will be automatically converted from FP16 to FP32")
 
-            # Set path early to ensure it's available for error reporting
-            self.dora_path = validated_path
-
             # Load DoRA adapter using the LoRA loading mechanism
             # The diffusers library will handle precision conversion automatically
             self.pipe.load_lora_weights(
@@ -152,18 +169,23 @@ class NoobAIEngine:
             # Set adapter scale
             self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
 
+            # Set path only after successful load to maintain state consistency
+            self.dora_path = validated_path
             self.dora_loaded = True
             logger.info(f"DoRA adapter loaded successfully with {pipeline_dtype} precision")
 
         except (IOError, OSError) as e:
             logger.error(f"Failed to load DoRA adapter (file error): {e}")
             self.dora_loaded = False
+            self.dora_path = None  # Reset path on failure
         except (RuntimeError, ValueError) as e:
             logger.error(f"Failed to load DoRA adapter (runtime/validation error): {e}")
             self.dora_loaded = False
+            self.dora_path = None  # Reset path on failure
         except Exception as e:
             logger.error(f"Unexpected error loading DoRA adapter: {e}")
             self.dora_loaded = False
+            self.dora_path = None  # Reset path on failure
 
     def unload_dora_adapter(self) -> None:
         """Completely unload DoRA adapter with full memory cleanup."""
