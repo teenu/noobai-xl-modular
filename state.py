@@ -119,7 +119,7 @@ class ResourcePool:
     def __init__(self):
         self._lock = threading.Lock()
         self._resources = {}
-        self._failed_cleanups = {}  # Track resources that failed to clean up
+        self._failed_cleanups = {}  # Track metadata for failed cleanups (not resource objects)
 
     def get_or_create(self, key: str, creator_func: Callable) -> Any:
         """Get existing resource or create new one."""
