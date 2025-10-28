@@ -533,10 +533,14 @@ def generate_image_with_progress(
 
         # Save image with standardized settings
         output_path = os.path.join(OUTPUT_DIR, f"noobai_{final_seed}.png")
-        current_engine.save_image_standardized(image, output_path)
+        saved_path = current_engine.save_image_standardized(image, output_path)
+
+        # Validate save succeeded before calculating hash
+        if not saved_path or not os.path.exists(saved_path):
+            raise IOError(f"Failed to save image to {output_path}")
 
         # Add hash info to the generation info
-        image_hash = calculate_image_hash(output_path)
+        image_hash = calculate_image_hash(saved_path)
         info += f"\n📄 MD5 Hash: {image_hash}"
 
         progress(1.0, desc="Complete!")

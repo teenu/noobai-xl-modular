@@ -163,12 +163,13 @@ class ResourcePool:
 
                 except Exception as e:
                     logger.warning(f"Error cleaning up resource '{key}': {e}")
+                    # Store metadata for tracking, but still mark for removal from pool
                     failed_to_clean[key] = {'resource': resource, 'error': str(e)}
                     cleanup_succeeded = False
 
-                # Only remove from active resources if cleanup succeeded
-                if cleanup_succeeded:
-                    successfully_cleaned.append(key)
+                # Remove from active resources regardless of cleanup success
+                # This prevents permanent memory leaks from repeatedly failed cleanups
+                successfully_cleaned.append(key)
 
             # Remove successfully cleaned resources from the pool
             for key in successfully_cleaned:
