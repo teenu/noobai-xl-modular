@@ -15,7 +15,7 @@ from config import (
 from utils import (
     discover_dora_adapters, get_dora_adapter_by_name, validate_model_path,
     validate_dora_path, detect_adapter_precision, get_user_friendly_error,
-    calculate_image_hash
+    calculate_image_hash, find_dora_path, parse_manual_dora_schedule
 )
 from ui_helpers import find_model_path, validate_parameters
 from engine import NoobAIEngine
@@ -103,7 +103,6 @@ def cli_generate(args):
                     return 1
             else:
                 # Auto-detect DoRA
-                from utils import find_dora_path
                 auto_dora_path = find_dora_path()
                 if auto_dora_path:
                     dora_path_to_use = auto_dora_path
@@ -143,7 +142,6 @@ def cli_generate(args):
         manual_schedule_csv = None
         if args.enable_dora and args.dora_toggle_mode == "manual":
             if args.dora_manual_schedule:
-                from utils import parse_manual_dora_schedule
                 manual_schedule, warning = parse_manual_dora_schedule(args.dora_manual_schedule, args.steps)
                 if warning:
                     print(f"⚠️ {warning}")

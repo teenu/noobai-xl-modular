@@ -52,13 +52,16 @@ class IndexedPromptFormatterData:
             self.is_loaded = False
 
     def _load_with_pandas(self):
-        """Load CSV data using pandas."""
+        """Load CSV data using pandas.
+
+        Uses to_dict('records') instead of iterrows() for ~4x faster iteration.
+        """
         for source in ['danbooru', 'e621']:
             # Character data
             char_path = CSV_PATHS.get(f'{source}_character')
             if char_path:
                 df = pd.read_csv(char_path)
-                for _, row in df.iterrows():
+                for row in df.to_dict('records'):
                     character_entry = {
                         'trigger': str(row.get('trigger', '')),
                         'source': source,
@@ -72,7 +75,7 @@ class IndexedPromptFormatterData:
             artist_path = CSV_PATHS.get(f'{source}_artist')
             if artist_path:
                 df = pd.read_csv(artist_path)
-                for _, row in df.iterrows():
+                for row in df.to_dict('records'):
                     artist_entry = {
                         'trigger': str(row.get('trigger', '')),
                         'source': source,

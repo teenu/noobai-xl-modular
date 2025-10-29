@@ -184,15 +184,16 @@ class NoobAIEngine:
         except (IOError, OSError) as e:
             logger.error(f"Failed to load DoRA adapter (file error): {e}")
             self.dora_loaded = False
-            self.dora_path = None  # Reset path on failure
         except (RuntimeError, ValueError) as e:
             logger.error(f"Failed to load DoRA adapter (runtime/validation error): {e}")
             self.dora_loaded = False
-            self.dora_path = None  # Reset path on failure
         except Exception as e:
             logger.error(f"Unexpected error loading DoRA adapter: {e}")
             self.dora_loaded = False
-            self.dora_path = None  # Reset path on failure
+        finally:
+            # Ensure path is reset on failure (all error paths set dora_loaded=False)
+            if not self.dora_loaded:
+                self.dora_path = None
 
     def unload_dora_adapter(self) -> None:
         """Completely unload DoRA adapter with full memory cleanup."""

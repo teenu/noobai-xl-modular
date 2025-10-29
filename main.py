@@ -54,6 +54,7 @@ atexit.register(cleanup_resources)
 
 def main():
     """Main application entry point with CLI support."""
+    args = None  # Initialize for exception handler access
     try:
         args = parse_args()
 
@@ -92,7 +93,8 @@ def main():
         return 0
     except Exception as e:
         logger.error(f"Application error: {e}")
-        if 'args' in locals() and (args.cli or (hasattr(args, 'list_dora_adapters') and args.list_dora_adapters)):
+        # Print error for CLI mode, re-raise for GUI mode
+        if args is not None and (args.cli or (hasattr(args, 'list_dora_adapters') and args.list_dora_adapters)):
             print(f"❌ Error: {e}")
             return 1
         raise

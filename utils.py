@@ -12,7 +12,8 @@ import struct
 import hashlib
 import unicodedata
 import torch
-from typing import Tuple, Dict, Any, List, Optional
+from functools import lru_cache
+from typing import Tuple, Dict, Any, List, Optional, Sequence
 from config import (
     logger, MODEL_CONFIG, GEN_CONFIG, USER_FRIENDLY_ERRORS,
     DORA_SEARCH_DIRECTORIES, DTYPE_MAP, SAFETENSORS_AVAILABLE
@@ -30,8 +31,13 @@ def get_user_friendly_error(error: Exception) -> str:
             return message
     return str(error)
 
-def _get_allowed_directories() -> List[str]:
-    """Get list of allowed directories for model/adapter files."""
+@lru_cache(maxsize=1)
+def _get_allowed_directories() -> tuple:
+    """Get list of allowed directories for model/adapter files.
+
+    Returns tuple for hashability (required by lru_cache).
+    Cached as directory list rarely changes during runtime.
+    """
     allowed = [
         os.getcwd(),  # Current working directory
         os.path.expanduser("~"),  # User home directory
@@ -42,11 +48,16 @@ def _get_allowed_directories() -> List[str]:
     ]
 
     # Normalize all paths and resolve symlinks
-    return [os.path.realpath(os.path.normpath(d)) for d in allowed if os.path.exists(d)]
+    # Return as tuple for lru_cache hashability
+    return tuple(os.path.realpath(os.path.normpath(d)) for d in allowed if os.path.exists(d))
 
-def _is_path_in_allowed_directory(path: str, allowed_dirs: List[str]) -> Tuple[bool, Optional[str]]:
+def _is_path_in_allowed_directory(path: str, allowed_dirs: Sequence[str]) -> Tuple[bool, Optional[str]]:
     """
     Check if path is within allowed directories.
+
+    Args:
+        path: Path to validate
+        allowed_dirs: Sequence of allowed directory paths (list or tuple)
 
     Returns:
         Tuple of (is_allowed, reason)
@@ -70,33 +81,55 @@ def _is_path_in_allowed_directory(path: str, allowed_dirs: List[str]) -> Tuple[b
     # Not in any allowed directory
     return False, f"File must be in an allowed directory (current directory, home, Downloads, Documents, or Models)"
 
-def validate_model_path(path: str) -> Tuple[bool, str]:
-    """Validate model path with comprehensive checks including directory containment."""
+def _validate_file_path(
+    path: str,
+    file_type: str,
+    allowed_extensions: Tuple[str, ...],
+    min_size_mb: int,
+    max_size_mb: int
+) -> Tuple[bool, str]:
+    """
+    Common file path validation logic.
+
+    Args:
+        path: Path to validate
+        file_type: Display name for error messages (e.g., "Model", "DoRA")
+        allowed_extensions: Tuple of allowed file extensions
+        min_size_mb: Minimum file size in MB
+        max_size_mb: Maximum file size in MB
+
+    Returns:
+        Tuple of (is_valid, result)
+        - is_valid: True if valid, False otherwise
+        - result: If valid, normalized path; if invalid, error message
+    """
     if not path.strip():
-        return False, "Please provide a model path"
+        return False, f"Please provide a {file_type.lower()} path"
 
     try:
         # Normalize and validate path (resolves all '..' and makes absolute)
-        # This prevents path traversal attacks by resolving relative components
         normalized_path = os.path.normpath(os.path.abspath(path))
 
         if not os.path.exists(normalized_path):
-            return False, f"Model file not found: {normalized_path}"
+            return False, f"{file_type} file not found: {normalized_path}"
 
         if not os.path.isfile(normalized_path):
             return False, "Path must point to a file, not a directory"
 
         # Check file extension
-        if not any(normalized_path.lower().endswith(fmt) for fmt in MODEL_CONFIG.SUPPORTED_FORMATS):
-            return False, f"Unsupported format. Expected: {', '.join(MODEL_CONFIG.SUPPORTED_FORMATS)}"
+        if not any(normalized_path.lower().endswith(ext) for ext in allowed_extensions):
+            return False, f"Unsupported format. Expected: {', '.join(allowed_extensions)}"
 
         # Check file size
         file_size = os.path.getsize(normalized_path)
-        if file_size < MODEL_CONFIG.MIN_FILE_SIZE_MB * 1024 * 1024:
-            return False, f"File too small ({format_file_size(file_size)}). Expected > {MODEL_CONFIG.MIN_FILE_SIZE_MB}MB"
+        min_size_bytes = min_size_mb * 1024 * 1024
+        max_size_bytes = max_size_mb * 1024 * 1024
 
-        if file_size > MODEL_CONFIG.MAX_FILE_SIZE_GB * 1024 * 1024 * 1024:
-            return False, f"File too large ({format_file_size(file_size)}). Expected < {MODEL_CONFIG.MAX_FILE_SIZE_GB}GB"
+        if file_size < min_size_bytes:
+            return False, f"File too small ({format_file_size(file_size)}). Expected > {min_size_mb}MB"
+
+        if file_size > max_size_bytes:
+            return False, f"File too large ({format_file_size(file_size)}). Expected < {max_size_mb}MB"
 
         # Security: Check directory containment
         allowed_dirs = _get_allowed_directories()
@@ -107,7 +140,7 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
 
         # If allowed but has warning (e.g., /tmp), log it
         if reason:
-            logger.warning(f"Model path security warning: {reason}")
+            logger.warning(f"{file_type} path security warning: {reason}")
 
         return True, normalized_path
 
@@ -117,6 +150,17 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
         return False, f"Path validation error: {str(e)}"
     except Exception as e:
         return False, f"Unexpected error validating path: {str(e)}"
+
+
+def validate_model_path(path: str) -> Tuple[bool, str]:
+    """Validate model path with comprehensive checks including directory containment."""
+    return _validate_file_path(
+        path=path,
+        file_type="Model",
+        allowed_extensions=MODEL_CONFIG.SUPPORTED_FORMATS,
+        min_size_mb=MODEL_CONFIG.MIN_FILE_SIZE_MB,
+        max_size_mb=MODEL_CONFIG.MAX_FILE_SIZE_GB * 1024  # Convert GB to MB
+    )
 
 def get_safe_csv_paths() -> Dict[str, str]:
     """Get validated CSV file paths with security checks."""
@@ -179,54 +223,13 @@ def calculate_image_hash(file_path: str) -> str:
 
 def validate_dora_path(path: str) -> Tuple[bool, str]:
     """Validate DoRA adapter path with comprehensive checks including directory containment."""
-    if not path or not path.strip():
-        return False, "Please provide a DoRA adapter path"
-
-    try:
-        # Normalize and validate path (resolves all '..' and makes absolute)
-        # This prevents path traversal attacks by resolving relative components
-        normalized_path = os.path.normpath(os.path.abspath(path))
-
-        if not os.path.exists(normalized_path):
-            return False, f"DoRA file not found: {normalized_path}"
-
-        if not os.path.isfile(normalized_path):
-            return False, "Path must point to a file, not a directory"
-
-        # Check file extension
-        if not normalized_path.lower().endswith('.safetensors'):
-            return False, "DoRA file must be in .safetensors format"
-
-        # Check file size
-        file_size = os.path.getsize(normalized_path)
-        min_size = MODEL_CONFIG.DORA_MIN_FILE_SIZE_MB * 1024 * 1024
-        max_size = MODEL_CONFIG.DORA_MAX_FILE_SIZE_MB * 1024 * 1024
-
-        if file_size < min_size:
-            return False, f"DoRA file too small ({format_file_size(file_size)}). Expected > {MODEL_CONFIG.DORA_MIN_FILE_SIZE_MB}MB"
-
-        if file_size > max_size:
-            return False, f"DoRA file too large ({format_file_size(file_size)}). Expected < {MODEL_CONFIG.DORA_MAX_FILE_SIZE_MB}MB"
-
-        # Security: Check directory containment
-        allowed_dirs = _get_allowed_directories()
-        is_allowed, reason = _is_path_in_allowed_directory(normalized_path, allowed_dirs)
-
-        if not is_allowed:
-            return False, f"Security: {reason}"
-
-        # If allowed but has warning (e.g., /tmp), log it
-        if reason:
-            logger.warning(f"DoRA path security warning: {reason}")
-
-        return True, normalized_path
-
-    except (IOError, OSError) as e:
-        return False, f"DoRA file access error: {str(e)}"
-    except (ValueError, TypeError) as e:
-        return False, f"DoRA path validation error: {str(e)}"
-    except Exception as e:
-        return False, f"Unexpected error validating DoRA path: {str(e)}"
+    return _validate_file_path(
+        path=path,
+        file_type="DoRA",
+        allowed_extensions=('.safetensors',),
+        min_size_mb=MODEL_CONFIG.DORA_MIN_FILE_SIZE_MB,
+        max_size_mb=MODEL_CONFIG.DORA_MAX_FILE_SIZE_MB
+    )
 
 def detect_base_model_precision(model_path: str) -> torch.dtype:
     """Detect the native precision using lightweight header analysis (400x faster)."""
