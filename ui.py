@@ -551,8 +551,8 @@ def create_interface() -> gr.Blocks:
                 cells_html.append(f'<div class="{cell_class}" data-index="{i}"></div>')
 
             # Unique ID for this grid instance
-            import time
-            grid_id = f"dora-grid-{steps_int}-{int(time.time() * 1000)}"
+            import uuid
+            grid_id = f"dora-grid-{steps_int}-{uuid.uuid4().hex[:8]}"
 
             grid_html = f'''
             <div id="{grid_id}" style="margin-top: 10px;">

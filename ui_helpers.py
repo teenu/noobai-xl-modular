@@ -105,6 +105,13 @@ def parse_resolution_string(res_str: str) -> Tuple[int, int]:
     except Exception:
         return OPTIMAL_SETTINGS['width'], OPTIMAL_SETTINGS['height']
 
+def _coerce_int(value, label: str) -> int:
+    """Coerce value to integer with descriptive error message."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise InvalidParameterError(f"{label} must be an integer value")
+
 def validate_parameters(w: int, h: int, s: int, c: float, r: float, a: Optional[float] = None, ds: Optional[int] = None) -> Optional[str]:
     """Validate generation parameters."""
     errors = []
@@ -266,6 +273,7 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                 try:
                     # Full engine teardown with all cleanup
                     engine.teardown_engine()
+                    # GPU synchronization handled by clear_memory() in teardown
 
                     # Explicit deletion and nullification
                     del engine
@@ -276,9 +284,6 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
 
                     # Force garbage collection after teardown
                     gc.collect()
-
-                    # Brief pause to ensure complete cleanup
-                    time.sleep(0.1)
 
                     logger.info("Previous engine instance completely torn down")
 
@@ -465,13 +470,6 @@ def generate_image_with_progress(
         if not prompt.strip():
             state_manager.set_state(GenerationState.ERROR)
             return None, "❌ Please enter a prompt", seed
-
-        def _coerce_int(value, label):
-            try:
-                coerced = int(value)
-                return coerced
-            except (TypeError, ValueError):
-                raise InvalidParameterError(f"{label} must be an integer value")
 
         # Parse resolution
         if use_custom_resolution:

@@ -131,12 +131,12 @@ class ResourcePool:
     def clear(self):
         """Enhanced resource pool clearing with proper resource cleanup and leak prevention."""
         with self._lock:
-            # First, retry any previously failed cleanups
+            # First, clear any stale cleanup metadata
             if self._failed_cleanups:
-                logger.info(f"Retrying cleanup of {len(self._failed_cleanups)} previously failed resource(s)")
-                retry_count = self._retry_failed_cleanups_internal()
-                if retry_count > 0:
-                    logger.info(f"Successfully cleaned {retry_count} previously failed resource(s)")
+                logger.info(f"Checking {len(self._failed_cleanups)} previously failed resource(s) for stale metadata")
+                cleared_count = self._clear_stale_cleanup_metadata_internal()
+                if cleared_count > 0:
+                    logger.info(f"Cleared {cleared_count} stale cleanup metadata entries")
 
             successfully_cleaned = []
             failed_to_clean = {}
@@ -198,12 +198,15 @@ class ResourcePool:
         with self._lock:
             return self._failed_cleanups.copy()
 
-    def _retry_failed_cleanups_internal(self) -> int:
-        """Internal method to retry failed cleanups (assumes lock is already held)."""
+    def _clear_stale_cleanup_metadata_internal(self) -> int:
+        """Internal method to clear stale cleanup metadata (assumes lock is already held).
+
+        Since resource references are not stored (to prevent memory leaks), this method
+        only removes metadata entries older than 1 hour, which are likely already GC'd.
+        """
         if not self._failed_cleanups:
             return 0
 
-        # Since we no longer store resource references, we can only clear stale metadata
         # Remove entries older than 1 hour (likely already GC'd)
         current_time = time.time()
         stale_entries = []
@@ -214,17 +217,21 @@ class ResourcePool:
 
         for key in stale_entries:
             del self._failed_cleanups[key]
-            logger.info(f"Removed stale failed cleanup metadata for '{key}'")
+            logger.debug(f"Removed stale cleanup metadata for '{key}'")
 
         if stale_entries:
             gc.collect()
 
         return len(stale_entries)
 
-    def retry_failed_cleanups(self) -> int:
-        """Retry cleanup of previously failed resources. Returns number of resources successfully cleaned."""
+    def clear_stale_cleanup_metadata(self) -> int:
+        """Clear stale cleanup metadata for resources that failed cleanup.
+
+        Since resource references are not stored (to prevent memory leaks), this method
+        only removes metadata entries older than 1 hour. Returns number of entries cleared.
+        """
         with self._lock:
-            return self._retry_failed_cleanups_internal()
+            return self._clear_stale_cleanup_metadata_internal()
 
 # Global resource pool
 resource_pool = ResourcePool()

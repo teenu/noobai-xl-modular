@@ -185,10 +185,15 @@ def cli_generate(args):
 
         # Save image with standardized settings
         output_path = args.output or f"noobai_output_{seed}.png"
-        engine.save_image_standardized(image, output_path)
+        saved_path = engine.save_image_standardized(image, output_path)
+
+        # Validate save succeeded before calculating hash
+        if not saved_path or not os.path.exists(saved_path):
+            print(f"❌ Failed to save image to {output_path}")
+            return 1
 
         # Calculate and display hash
-        image_hash = calculate_image_hash(output_path)
+        image_hash = calculate_image_hash(saved_path)
 
         print(f"✅ Image saved to: {output_path}")
         print(f"🌱 Seed: {seed}")

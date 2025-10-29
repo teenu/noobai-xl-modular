@@ -71,7 +71,14 @@ class NoobAIEngine:
                     # Validate GPU supports the detected precision
                     if base_precision == torch.bfloat16:
                         # Check if GPU has BF16 capability (Ampere/Ada architecture or newer)
-                        if hasattr(torch.cuda, 'is_bf16_supported') and torch.cuda.is_bf16_supported():
+                        bf16_supported = False
+                        try:
+                            if hasattr(torch.cuda, 'is_bf16_supported'):
+                                bf16_supported = torch.cuda.is_bf16_supported()
+                        except (AttributeError, RuntimeError) as e:
+                            logger.debug(f"Could not check BF16 support: {e}")
+
+                        if bf16_supported:
                             inference_dtype = torch.bfloat16
                         else:
                             logger.warning(
@@ -245,14 +252,12 @@ class NoobAIEngine:
             # 1. Complete unload of current adapter
             if self.dora_loaded:
                 self.unload_dora_adapter()
+                # GPU synchronization now handled by clear_memory()
 
-            # 2. Brief pause to ensure complete cleanup
-            time.sleep(0.1)
-
-            # 3. Update adapter path
+            # 2. Update adapter path
             self.dora_path = validated_path
 
-            # 4. Load new adapter with fresh state
+            # 3. Load new adapter with fresh state
             self._load_dora_adapter()
 
             if self.dora_loaded:
@@ -912,14 +917,20 @@ class NoobAIEngine:
                 except Exception as e:
                     logger.warning(f"Error deleting pipeline: {e}")
 
-            # 4. Clear device caches with synchronization
+            # 4. Clear device caches with proper synchronization
             try:
                 if self._device == "mps":
+                    try:
+                        torch.mps.synchronize()  # Wait for MPS operations to complete FIRST
+                    except (AttributeError, RuntimeError):
+                        pass
                     torch.mps.empty_cache()
-                    torch.mps.synchronize()  # Wait for MPS operations to complete
                 elif self._device == "cuda":
+                    try:
+                        torch.cuda.synchronize()  # Wait for CUDA operations to complete FIRST
+                    except (AttributeError, RuntimeError):
+                        pass
                     torch.cuda.empty_cache()
-                    torch.cuda.synchronize()  # Wait for CUDA operations
                     if hasattr(torch.cuda, 'ipc_collect'):
                         torch.cuda.ipc_collect()  # Clear inter-process memory
                 logger.info(f"Device caches cleared for {self._device}")
@@ -992,11 +1003,21 @@ class NoobAIEngine:
                 logger.error(f"Failed to reset some state variables: {', '.join(reset_failures)}")
 
     def clear_memory(self) -> None:
-        """Clear GPU/memory caches."""
+        """Clear GPU/memory caches with proper synchronization."""
         try:
+            # Synchronize GPU operations before clearing cache to ensure
+            # all pending operations complete (replaces unreliable time.sleep)
             if self._device == "mps":
+                try:
+                    torch.mps.synchronize()
+                except (AttributeError, RuntimeError):
+                    pass  # Older PyTorch versions or MPS not available
                 torch.mps.empty_cache()
             elif self._device == "cuda":
+                try:
+                    torch.cuda.synchronize()
+                except (AttributeError, RuntimeError):
+                    pass  # CUDA not available
                 torch.cuda.empty_cache()
             gc.collect()
         except Exception as e:

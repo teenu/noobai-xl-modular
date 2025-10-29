@@ -6,6 +6,7 @@ searching character and artist data from CSV files.
 """
 
 import csv
+import threading
 from typing import List, Dict, Optional
 from config import logger, PANDAS_AVAILABLE, SEARCH_CONFIG, SearchScoring
 from state import perf_monitor
@@ -247,12 +248,19 @@ class IndexedPromptFormatterData:
             # Remove score from final results
             return [{k: v for k, v in r.items() if k != 'score'} for r in final_results]
 
-# Create global instance
+# Create global instance with thread-safe lazy initialization
 prompt_formatter_data: Optional[IndexedPromptFormatterData] = None
+_prompt_data_lock = threading.Lock()
 
 def get_prompt_data() -> IndexedPromptFormatterData:
-    """Get or create prompt formatter data instance."""
+    """Get or create prompt formatter data instance (thread-safe)."""
     global prompt_formatter_data
+
+    # Double-checked locking pattern for thread-safe lazy initialization
     if prompt_formatter_data is None:
-        prompt_formatter_data = IndexedPromptFormatterData()
+        with _prompt_data_lock:
+            # Check again inside lock to prevent race condition
+            if prompt_formatter_data is None:
+                prompt_formatter_data = IndexedPromptFormatterData()
+
     return prompt_formatter_data
