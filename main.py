@@ -7,7 +7,6 @@ both GUI and CLI interfaces.
 """
 
 import os
-import time
 import atexit
 from config import logger, OUTPUT_DIR
 from state import perf_monitor, resource_pool
@@ -28,19 +27,6 @@ def cleanup_resources():
         if current_engine:
             current_engine.clear_memory()
         resource_pool.clear()
-        # Clean up old temporary files
-        if os.path.exists(OUTPUT_DIR):
-            try:
-                # Remove files older than 1 day
-                current_time = time.time()
-                for filename in os.listdir(OUTPUT_DIR):
-                    file_path = os.path.join(OUTPUT_DIR, filename)
-                    if os.path.isfile(file_path):
-                        file_age = current_time - os.path.getmtime(file_path)
-                        if file_age > 86400:  # 1 day in seconds
-                            os.remove(file_path)
-            except Exception as e:
-                logger.warning(f"Could not clean up old files: {e}")
         logger.info("Resources cleaned up successfully")
     except Exception as e:
         logger.error(f"Error during cleanup: {e}")

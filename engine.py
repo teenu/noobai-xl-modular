@@ -733,9 +733,6 @@ class NoobAIEngine:
     def save_image_standardized(self, image: Image.Image, output_path: str,
                                include_metadata: bool = True) -> str:
         """Save image with standardized settings for consistent hashing."""
-        # Create a copy to avoid modifying the original
-        img_copy = image.copy()
-
         # Prepare PNG metadata
         pnginfo = None
         if include_metadata and hasattr(image, 'info') and image.info:
@@ -746,7 +743,8 @@ class NoobAIEngine:
                 pnginfo.add_text(key, str(image.info[key]))
 
         # Save with consistent parameters
-        img_copy.save(
+        # Note: save() does not mutate the image object
+        image.save(
             output_path,
             format='PNG',
             pnginfo=pnginfo,

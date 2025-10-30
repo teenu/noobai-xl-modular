@@ -182,7 +182,7 @@ def cli_generate(args):
         )
 
         # Save image with standardized settings
-        output_path = args.output or f"noobai_output_{seed}.png"
+        output_path = args.output or f"noobai_{seed}.png"
         saved_path = engine.save_image_standardized(image, output_path)
 
         # Validate save succeeded before calculating hash
@@ -336,7 +336,7 @@ Examples:
     cli_group.add_argument(
         "--output",
         type=str,
-        help="Output file path (default: noobai_output_<seed>.png)"
+        help="Output file path (default: noobai_<seed>.png in current directory)"
     )
     cli_group.add_argument(
         "--adapter-strength",

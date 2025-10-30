@@ -7,7 +7,6 @@ for the NoobAI application.
 """
 
 import os
-import tempfile
 from dataclasses import dataclass
 from typing import Tuple
 import torch
@@ -88,7 +87,9 @@ GEN_CONFIG = GenerationConfig()
 SEARCH_CONFIG = SearchConfig()
 
 # Output directory for generated images
-OUTPUT_DIR = os.path.join(tempfile.gettempdir(), "noobai_outputs")
+# Use 'outputs' subdirectory in script location for persistent storage
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(_script_dir, "outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # User-friendly error messages
@@ -163,7 +164,6 @@ DEFAULT_POSITIVE_PREFIX = "very awa, masterpiece, best quality, year 2024, newes
 
 # Model search paths
 # Use absolute paths to avoid CWD dependency issues
-_script_dir = os.path.dirname(os.path.abspath(__file__))
 MODEL_SEARCH_PATHS = [
     os.path.join(_script_dir, "NoobAI-XL-Vpred-v1.0.safetensors"),  # Script directory
     os.path.join(_script_dir, "models", "NoobAI-XL-Vpred-v1.0.safetensors"),  # Models subdirectory
