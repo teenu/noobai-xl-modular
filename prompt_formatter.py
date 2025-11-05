@@ -84,35 +84,47 @@ class IndexedPromptFormatterData:
                     self.artist_data[source].append(artist_entry)
 
     def _load_with_csv(self):
-        """Load CSV data without pandas."""
+        """Load CSV data without pandas with robust encoding handling."""
         for source in ['danbooru', 'e621']:
             # Character data
             char_path = CSV_PATHS.get(f'{source}_character')
             if char_path:
-                with open(char_path, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        character_entry = {
-                            'trigger': str(row.get('trigger', '')),
-                            'source': source,
-                            'character': str(row.get('character', '')),
-                            'copyright': str(row.get('copyright', '')),
-                            'core_tags': str(row.get('core_tags', '')) if source == 'danbooru' else ''
-                        }
-                        self.character_data[source].append(character_entry)
+                try:
+                    # Try UTF-8 first (most common)
+                    with open(char_path, 'r', encoding='utf-8', errors='replace') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            character_entry = {
+                                'trigger': str(row.get('trigger', '')),
+                                'source': source,
+                                'character': str(row.get('character', '')),
+                                'copyright': str(row.get('copyright', '')),
+                                'core_tags': str(row.get('core_tags', '')) if source == 'danbooru' else ''
+                            }
+                            self.character_data[source].append(character_entry)
+                except (UnicodeDecodeError, UnicodeError) as e:
+                    logger.warning(f"UTF-8 decode failed for {char_path}, characters may be corrupted: {e}")
+                except (IOError, OSError) as e:
+                    logger.error(f"Failed to read character CSV {char_path}: {e}")
 
             # Artist data
             artist_path = CSV_PATHS.get(f'{source}_artist')
             if artist_path:
-                with open(artist_path, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        artist_entry = {
-                            'trigger': str(row.get('trigger', '')),
-                            'source': source,
-                            'artist': str(row.get('artist', ''))
-                        }
-                        self.artist_data[source].append(artist_entry)
+                try:
+                    # Try UTF-8 first (most common)
+                    with open(artist_path, 'r', encoding='utf-8', errors='replace') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            artist_entry = {
+                                'trigger': str(row.get('trigger', '')),
+                                'source': source,
+                                'artist': str(row.get('artist', ''))
+                            }
+                            self.artist_data[source].append(artist_entry)
+                except (UnicodeDecodeError, UnicodeError) as e:
+                    logger.warning(f"UTF-8 decode failed for {artist_path}, characters may be corrupted: {e}")
+                except (IOError, OSError) as e:
+                    logger.error(f"Failed to read artist CSV {artist_path}: {e}")
 
     def _build_indices(self):
         """Build search indices for faster lookups."""

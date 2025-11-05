@@ -74,7 +74,7 @@ class GenerationState(Enum):
     ERROR = "error"
 
 class StateManager:
-    """Thread-safe state management for generation."""
+    """Thread-safe state management for generation with atomic operations."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -101,10 +101,51 @@ class StateManager:
             return self._state == GenerationState.INTERRUPTED
 
     def request_interrupt(self) -> None:
-        """Request generation interruption."""
+        """Request generation interruption.
+
+        Only transitions from GENERATING to INTERRUPTED to prevent invalid state changes.
+        """
         with self._lock:
             if self._state == GenerationState.GENERATING:
                 self._state = GenerationState.INTERRUPTED
+
+    def try_start_generation(self) -> bool:
+        """Atomically attempt to start generation.
+
+        Returns:
+            True if state was IDLE and is now GENERATING, False otherwise.
+
+        This prevents race conditions where multiple threads try to start generation.
+        """
+        with self._lock:
+            if self._state == GenerationState.IDLE:
+                self._state = GenerationState.GENERATING
+                return True
+            return False
+
+    def try_complete_generation(self) -> bool:
+        """Atomically attempt to mark generation as completed.
+
+        Returns:
+            True if state was GENERATING and is now COMPLETED, False otherwise.
+
+        This prevents race conditions where completion is called during interruption.
+        """
+        with self._lock:
+            if self._state == GenerationState.GENERATING:
+                self._state = GenerationState.COMPLETED
+                return True
+            return False
+
+    def finish_generation(self) -> None:
+        """Finish generation and return to IDLE state.
+
+        Safe to call regardless of current state (COMPLETED, INTERRUPTED, ERROR).
+        Does not transition from GENERATING to prevent accidental state corruption.
+        """
+        with self._lock:
+            if self._state != GenerationState.GENERATING:
+                self._state = GenerationState.IDLE
 
 # Global state manager instance
 state_manager = StateManager()

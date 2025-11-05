@@ -257,12 +257,18 @@ def connect_search_events(
 # ============================================================================
 
 def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "") -> str:
-    """Initialize the NoobAI engine with comprehensive teardown of previous instance."""
+    """Initialize the NoobAI engine with comprehensive teardown of previous instance.
+
+    Thread-safe: Holds lock during entire check-teardown-initialization sequence
+    to prevent race conditions with concurrent generation or reinitialization.
+    """
     global engine
 
+    # Hold lock for ENTIRE operation to prevent TOCTOU race conditions
+    # This ensures no generation can start during teardown
     with _engine_lock:
         try:
-            # Prevent teardown during active generation to avoid race condition
+            # Atomic check: prevent teardown during active generation
             if state_manager.is_generating():
                 return "❌ Cannot reinitialize: Image generation in progress. Please wait for completion or interrupt first."
 
@@ -331,7 +337,7 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                     else:
                         dora_status = "\n⚠️ DoRA: Enabled but no valid DoRA file found"
 
-            # Initialize engine
+            # Initialize engine (still under lock - prevents concurrent access)
             engine = NoobAIEngine(
                 model_path=validated_model_path,
                 enable_dora=enable_dora,

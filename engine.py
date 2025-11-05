@@ -22,7 +22,8 @@ from config import (
 from state import perf_monitor, state_manager, GenerationState
 from utils import (
     detect_base_model_precision, detect_adapter_precision,
-    validate_dora_path, find_dora_path, format_file_size
+    validate_dora_path, find_dora_path, format_file_size,
+    parse_manual_dora_schedule
 )
 
 # ============================================================================
@@ -292,13 +293,25 @@ class NoobAIEngine:
             self.dora_path = None
             return False
 
-    def set_adapter_strength(self, strength: float) -> None:
-        """Set DoRA adapter strength."""
+    def set_adapter_strength(self, strength: float) -> float:
+        """Set DoRA adapter strength with clamping.
+
+        Args:
+            strength: Desired adapter strength
+
+        Returns:
+            Actual strength value used (after clamping if necessary)
+        """
         try:
-            # Validate strength is in bounds
+            original_strength = strength
+            # Validate strength is in bounds and clamp if necessary
             if not (MODEL_CONFIG.MIN_ADAPTER_STRENGTH <= strength <= MODEL_CONFIG.MAX_ADAPTER_STRENGTH):
-                logger.warning(f"Adapter strength {strength} out of bounds [{MODEL_CONFIG.MIN_ADAPTER_STRENGTH}-{MODEL_CONFIG.MAX_ADAPTER_STRENGTH}], clamping")
                 strength = max(MODEL_CONFIG.MIN_ADAPTER_STRENGTH, min(strength, MODEL_CONFIG.MAX_ADAPTER_STRENGTH))
+                logger.warning(
+                    f"Adapter strength {original_strength} out of bounds "
+                    f"[{MODEL_CONFIG.MIN_ADAPTER_STRENGTH}-{MODEL_CONFIG.MAX_ADAPTER_STRENGTH}], "
+                    f"clamped to {strength}"
+                )
 
             if self.dora_loaded and self.pipe is not None:
                 self.adapter_strength = strength
@@ -312,22 +325,43 @@ class NoobAIEngine:
                 # Store the strength even if DoRA is not loaded yet
                 self.adapter_strength = strength
                 logger.info(f"Adapter strength stored as {strength} (DoRA not loaded)")
+
+            return strength
+
         except Exception as e:
             logger.warning(f"Error setting adapter strength: {e}")
+            # Return current strength on error
+            return self.adapter_strength
 
-    def set_dora_start_step(self, start_step: int) -> None:
-        """Set DoRA adapter start step."""
+    def set_dora_start_step(self, start_step: int) -> int:
+        """Set DoRA adapter start step with clamping.
+
+        Args:
+            start_step: Desired start step
+
+        Returns:
+            Actual start step value used (after clamping if necessary)
+        """
         try:
-            # Validate start step is in bounds
+            original_start_step = start_step
+            # Validate start step is in bounds and clamp if necessary
             if not (MODEL_CONFIG.MIN_DORA_START_STEP <= start_step <= MODEL_CONFIG.MAX_DORA_START_STEP):
-                logger.warning(f"DoRA start step {start_step} out of bounds [{MODEL_CONFIG.MIN_DORA_START_STEP}-{MODEL_CONFIG.MAX_DORA_START_STEP}], clamping")
                 start_step = max(MODEL_CONFIG.MIN_DORA_START_STEP, min(start_step, MODEL_CONFIG.MAX_DORA_START_STEP))
+                logger.warning(
+                    f"DoRA start step {original_start_step} out of bounds "
+                    f"[{MODEL_CONFIG.MIN_DORA_START_STEP}-{MODEL_CONFIG.MAX_DORA_START_STEP}], "
+                    f"clamped to {start_step}"
+                )
 
             self.dora_start_step = start_step
             logger.info(f"DoRA start step set to {start_step}")
 
+            return start_step
+
         except Exception as e:
             logger.warning(f"Error setting DoRA start step: {e}")
+            # Return current value on error
+            return self.dora_start_step
 
     def set_dora_enabled(self, enabled: bool) -> None:
         """Dynamically enable/disable DoRA adapter."""
@@ -397,7 +431,7 @@ class NoobAIEngine:
             logger.warning("Manual toggle mode selected but no schedule provided - DoRA will be OFF for all steps")
             return None, None
 
-        from utils import parse_manual_dora_schedule
+        # parse_manual_dora_schedule imported at module level
         manual_schedule, manual_schedule_warning = parse_manual_dora_schedule(dora_manual_schedule, steps)
 
         if manual_schedule_warning:
@@ -516,6 +550,23 @@ class NoobAIEngine:
             Callback function for step_end events
         """
         def callback_on_step_end(pipe, step_index: int, timestep, callback_kwargs: Dict) -> Dict:
+            """Diffusers callback invoked at the end of each denoising step.
+
+            Handles interruption checking, progress tracking, DoRA toggling,
+            and user progress callback invocation.
+
+            Args:
+                pipe: The StableDiffusionXLPipeline instance
+                step_index: Current step index (0-based)
+                timestep: Current diffusion timestep
+                callback_kwargs: Pipeline callback state dictionary
+
+            Returns:
+                callback_kwargs: Unmodified callback state for pipeline
+
+            Raises:
+                GenerationInterruptedError: If user requested interruption
+            """
             # Check for interruption
             if state_manager.is_interrupted():
                 raise GenerationInterruptedError()
@@ -596,9 +647,11 @@ class NoobAIEngine:
     def _handle_standard_toggle(
         self, step_index: int, current_step: int, steps: int, eta: float, next_step_index: int
     ) -> str:
-        """Handle standard toggle mode progress description."""
+        """Handle standard toggle mode progress description with device synchronization."""
         if next_step_index < steps:
             current_state = "ON" if step_index % 2 == 0 else "OFF"
+            # Synchronize device before changing adapter weights to prevent race conditions
+            self._synchronize_device()
             if next_step_index % 2 == 0:  # Next is even - turn ON
                 self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
                 return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
@@ -612,8 +665,10 @@ class NoobAIEngine:
     def _handle_smart_toggle(
         self, step_index: int, current_step: int, steps: int, eta: float, next_step_index: int
     ) -> str:
-        """Handle smart toggle mode progress description."""
+        """Handle smart toggle mode progress description with device synchronization."""
         if next_step_index < steps:
+            # Synchronize device before changing adapter weights to prevent race conditions
+            self._synchronize_device()
             if next_step_index <= 19:
                 # Alternating phase (indices 0-19)
                 current_state = "ON" if step_index % 2 == 0 else "OFF"
@@ -644,19 +699,29 @@ class NoobAIEngine:
         next_step_index: int,
         manual_schedule: Optional[List[int]]
     ) -> str:
-        """Handle manual toggle mode progress description."""
+        """Handle manual toggle mode progress description with device synchronization."""
         if not manual_schedule:
             return f"Step {current_step}/{steps} (DoRA: OFF [no schedule], ETA: {eta:.1f}s)"
 
         current_state = "ON" if manual_schedule[step_index] == 1 else "OFF"
 
         if next_step_index < steps:
-            next_state = "ON" if manual_schedule[next_step_index] == 1 else "OFF"
-            # Set adapter for next step
-            if manual_schedule[next_step_index] == 1:
-                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
-            else:
+            # Bounds check to prevent IndexError if schedule is malformed
+            if next_step_index >= len(manual_schedule):
+                logger.warning(f"Manual schedule too short: index {next_step_index} >= length {len(manual_schedule)}, treating as OFF")
+                next_state = "OFF"
+                # Synchronize before changing weights
+                self._synchronize_device()
                 self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+            else:
+                next_state = "ON" if manual_schedule[next_step_index] == 1 else "OFF"
+                # Synchronize device before changing adapter weights
+                self._synchronize_device()
+                # Set adapter for next step
+                if manual_schedule[next_step_index] == 1:
+                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                else:
+                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
             return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: {next_state}, ETA: {eta:.1f}s)"
         else:
             return f"Step {current_step}/{steps} (DoRA: {current_state}, final, ETA: {eta:.1f}s)"
@@ -750,7 +815,19 @@ class NoobAIEngine:
 
     def save_image_standardized(self, image: Image.Image, output_path: str,
                                include_metadata: bool = True) -> str:
-        """Save image with standardized settings for consistent hashing."""
+        """Save image with standardized settings for consistent hashing.
+
+        Creates output directory if it doesn't exist to prevent race conditions.
+        """
+        # Ensure output directory exists (prevents race condition if deleted)
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+            except (IOError, OSError) as e:
+                logger.error(f"Failed to create output directory {output_dir}: {e}")
+                raise
+
         # Prepare PNG metadata
         pnginfo = None
         if include_metadata and hasattr(image, 'info') and image.info:
@@ -835,9 +912,23 @@ class NoobAIEngine:
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
 
-            # Torch generators do not support MPS; fall back to CPU in that case.
-            generator_device = "cuda" if self._device == "cuda" else "cpu"
-            generator = torch.Generator(device=generator_device).manual_seed(seed)
+            # Create generator on appropriate device for reproducibility
+            # Try MPS first (supported in PyTorch 2.0+), fall back to CPU if needed
+            generator_device = self._device
+            if self._device == "mps":
+                try:
+                    # Test if MPS supports Generator (PyTorch 2.0+)
+                    generator = torch.Generator(device="mps").manual_seed(seed)
+                    logger.debug("Using MPS generator for optimal performance and reproducibility")
+                except (RuntimeError, TypeError):
+                    # Fall back to CPU for older PyTorch versions
+                    generator_device = "cpu"
+                    generator = torch.Generator(device="cpu").manual_seed(seed)
+                    logger.debug("MPS generator not supported, using CPU generator (may impact reproducibility)")
+            elif self._device == "cuda":
+                generator = torch.Generator(device="cuda").manual_seed(seed)
+            else:
+                generator = torch.Generator(device="cpu").manual_seed(seed)
 
             # Parse manual DoRA schedule
             manual_schedule, _ = self._parse_manual_dora_schedule(
@@ -1019,22 +1110,35 @@ class NoobAIEngine:
             if reset_failures:
                 logger.error(f"Failed to reset some state variables: {', '.join(reset_failures)}")
 
-    def clear_memory(self) -> None:
-        """Clear GPU/memory caches with proper synchronization."""
+    def _synchronize_device(self) -> None:
+        """Synchronize device operations to ensure all pending GPU operations complete.
+
+        Critical for DoRA weight changes to prevent race conditions where adapter
+        weights are modified before previous operations finish.
+        """
         try:
-            # Synchronize GPU operations before clearing cache to ensure
-            # all pending operations complete (replaces unreliable time.sleep)
             if self._device == "mps":
                 try:
                     torch.mps.synchronize()
                 except (AttributeError, RuntimeError):
                     pass  # Older PyTorch versions or MPS not available
-                torch.mps.empty_cache()
             elif self._device == "cuda":
                 try:
                     torch.cuda.synchronize()
                 except (AttributeError, RuntimeError):
                     pass  # CUDA not available
+        except Exception as e:
+            logger.debug(f"Could not synchronize device: {e}")
+
+    def clear_memory(self) -> None:
+        """Clear GPU/memory caches with proper synchronization."""
+        try:
+            # Synchronize GPU operations before clearing cache to ensure
+            # all pending operations complete (replaces unreliable time.sleep)
+            self._synchronize_device()
+            if self._device == "mps":
+                torch.mps.empty_cache()
+            elif self._device == "cuda":
                 torch.cuda.empty_cache()
             gc.collect()
         except Exception as e:

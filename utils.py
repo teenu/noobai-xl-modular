@@ -53,7 +53,7 @@ def _get_allowed_directories() -> tuple:
 
 def _is_path_in_allowed_directory(path: str, allowed_dirs: Sequence[str]) -> Tuple[bool, Optional[str]]:
     """
-    Check if path is within allowed directories.
+    Check if path is within allowed directories using robust path validation.
 
     Args:
         path: Path to validate
@@ -64,19 +64,47 @@ def _is_path_in_allowed_directory(path: str, allowed_dirs: Sequence[str]) -> Tup
         - is_allowed: True if path is in allowed directory
         - reason: If not allowed, reason why; if allowed and in /tmp, warning message
     """
-    # Resolve to real path (follows symlinks)
+    # Resolve to real path (follows symlinks) and normalize
     try:
-        real_path = os.path.realpath(path)
+        real_path = os.path.realpath(os.path.normpath(path))
     except Exception as e:
         return False, f"Cannot resolve path: {e}"
 
-    # Check if path is within any allowed directory
+    # Additional security: detect potential path traversal attempts
+    if '..' in path or path != os.path.normpath(path):
+        logger.warning(f"Path traversal attempt detected: {path}")
+
+    # Check if path is within any allowed directory using robust method
     for allowed_dir in allowed_dirs:
-        if real_path.startswith(allowed_dir + os.sep) or real_path == allowed_dir:
-            # Special warning for /tmp
-            if allowed_dir == os.path.realpath("/tmp"):
-                return True, f"⚠️ File in temporary directory: {real_path}"
-            return True, None
+        try:
+            # Normalize both paths for consistent comparison
+            allowed_dir_real = os.path.realpath(os.path.normpath(allowed_dir))
+
+            # Method 1: Check if real_path starts with allowed_dir
+            # Must check with os.sep to prevent partial matches (e.g., /home vs /home2)
+            if real_path == allowed_dir_real:
+                # Exact match to allowed directory
+                if allowed_dir_real == os.path.realpath("/tmp"):
+                    return True, f"⚠️ File in temporary directory: {real_path}"
+                return True, None
+            elif real_path.startswith(allowed_dir_real + os.sep):
+                # Subdirectory of allowed directory
+                # Additional check: ensure no path components escape the allowed dir
+                try:
+                    # Verify path doesn't escape via symlinks
+                    common_path = os.path.commonpath([real_path, allowed_dir_real])
+                    if common_path != allowed_dir_real:
+                        continue  # Path escapes, check next allowed dir
+                except (ValueError, TypeError):
+                    continue  # Invalid comparison, check next allowed dir
+
+                if allowed_dir_real == os.path.realpath("/tmp"):
+                    return True, f"⚠️ File in temporary directory: {real_path}"
+                return True, None
+
+        except Exception as e:
+            logger.debug(f"Error checking path against {allowed_dir}: {e}")
+            continue
 
     # Not in any allowed directory
     return False, f"File must be in an allowed directory (current directory, home, Downloads, Documents, or Models)"
@@ -163,7 +191,7 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
     )
 
 def get_safe_csv_paths() -> Dict[str, str]:
-    """Get validated CSV file paths with security checks."""
+    """Get validated CSV file paths with enhanced security checks."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     style_dir = os.path.join(script_dir, "style")
 
@@ -171,9 +199,12 @@ def get_safe_csv_paths() -> Dict[str, str]:
         logger.warning(f"Style directory not found: {style_dir}")
         return {}
 
-    style_dir = os.path.normpath(style_dir)
-    if not style_dir.startswith(os.path.normpath(script_dir)):
-        logger.warning("Style directory outside of script directory - security risk")
+    # Normalize and verify style directory is within script directory
+    style_dir_real = os.path.realpath(os.path.normpath(style_dir))
+    script_dir_real = os.path.realpath(os.path.normpath(script_dir))
+
+    if not style_dir_real.startswith(script_dir_real + os.sep):
+        logger.error("Style directory outside of script directory - security violation")
         return {}
 
     csv_files = {
@@ -185,17 +216,26 @@ def get_safe_csv_paths() -> Dict[str, str]:
 
     validated_paths = {}
     for key, filename in csv_files.items():
-        if '..' in filename or '/' in filename or '\\' in filename:
-            logger.warning(f"Invalid filename detected: {filename}")
+        # Use basename to strip any path components (security)
+        safe_filename = os.path.basename(filename)
+
+        # Additional check: verify filename hasn't been manipulated
+        if safe_filename != filename:
+            logger.warning(f"Filename contains path components, using basename only: {filename} -> {safe_filename}")
+
+        # Verify no path traversal characters
+        if '..' in safe_filename or os.sep in safe_filename:
+            logger.warning(f"Invalid filename detected: {safe_filename}")
             continue
 
-        full_path = os.path.join(style_dir, filename)
-        full_path = os.path.normpath(full_path)
+        full_path = os.path.join(style_dir, safe_filename)
+        full_path_real = os.path.realpath(os.path.normpath(full_path))
 
-        if full_path.startswith(style_dir) and os.path.isfile(full_path):
-            validated_paths[key] = full_path
+        # Verify the resolved path is still within style directory
+        if full_path_real.startswith(style_dir_real + os.sep) and os.path.isfile(full_path_real):
+            validated_paths[key] = full_path_real
         else:
-            logger.warning(f"CSV file not found or outside safe directory: {filename}")
+            logger.debug(f"CSV file not found or outside safe directory: {safe_filename}")
 
     return validated_paths
 

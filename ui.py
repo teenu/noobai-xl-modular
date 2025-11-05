@@ -5,6 +5,7 @@ This module contains the Gradio interface creation and all event handlers.
 """
 
 import random
+import uuid
 import gradio as gr
 from config import (
     OFFICIAL_RESOLUTIONS, RECOMMENDED_RESOLUTIONS, OPTIMAL_SETTINGS,
@@ -475,7 +476,11 @@ def create_interface() -> gr.Blocks:
 
         # Engine initialization
         def init_and_update(path, enable_dora_val, dora_path_val, dora_selection_val):
-            """Enhanced initialization with teardown feedback."""
+            """Enhanced initialization with teardown feedback.
+
+            Generator function that yields UI updates for progressive feedback.
+            Always yields (never returns) to maintain consistent generator behavior.
+            """
             from ui_helpers import get_engine_safely, is_engine_ready
 
             # Provide teardown feedback if engine exists (thread-safe check)
@@ -493,7 +498,7 @@ def create_interface() -> gr.Blocks:
             status = initialize_engine(path, enable_dora_val, dora_path_val, dora_selection_val)
             ready = is_engine_ready()
 
-            # Final status update
+            # Final status update - always yield for consistent generator behavior
             final_status = (
                 status,
                 gr.update(
@@ -508,10 +513,8 @@ def create_interface() -> gr.Blocks:
                 gr.update(elem_classes=["status-success" if ready else "status-error"])
             )
 
-            if get_engine_safely() is not None:
-                yield final_status
-            else:
-                return final_status
+            # Always yield to maintain generator semantics
+            yield final_status
 
         init_btn.click(
             init_and_update,
@@ -550,8 +553,7 @@ def create_interface() -> gr.Blocks:
                 cell_class = "dora-cell on" if state == 1 else "dora-cell"
                 cells_html.append(f'<div class="{cell_class}" data-index="{i}"></div>')
 
-            # Unique ID for this grid instance
-            import uuid
+            # Unique ID for this grid instance (uuid imported at module level)
             grid_id = f"dora-grid-{steps_int}-{uuid.uuid4().hex[:8]}"
 
             grid_html = f'''
