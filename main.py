@@ -72,6 +72,10 @@ def main():
 
         # Create and launch interface
         demo = create_interface()
+
+        # Enable queue for progress tracking (required by Gradio 3.50.x)
+        demo.queue()
+
         demo.launch(
             share=args.share,
             inbrowser=not args.no_browser,
