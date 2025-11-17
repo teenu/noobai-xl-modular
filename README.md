@@ -60,11 +60,27 @@ pip install -r requirements.txt
 
 Required packages:
 - `diffusers` - Stable Diffusion pipeline
+- `transformers` - Model components
 - `accelerate` - CPU offloading for low-VRAM GPUs
 - `peft` - DoRA adapter support
 - `gradio` - Web interface
 - `pandas` - CSV data processing for character/artist search
 - `safetensors` - Model format optimization
+
+**Windows Users - Important:**
+
+If you encounter "path too long" errors during installation:
+
+1. **Enable Windows Long Paths (Run PowerShell as Administrator):**
+   ```powershell
+   New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+   ```
+
+2. **Restart your computer** (required)
+
+3. **Then retry:** `pip install -r requirements.txt`
+
+Alternatively, use a shorter installation path like `C:\noobai\` instead of deep nested folders.
 
 ### 3. Download Model File
 

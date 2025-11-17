@@ -1,15 +1,23 @@
 # NoobAI XL V-Pred 1.0 - Python Dependencies
+# Tested on Ubuntu/WSL and Windows with Python 3.11/3.12
 # Install with: pip install -r requirements.txt
 
-# Core ML and Image Processing
-# Note: PyTorch installation is platform-specific. Install separately:
-#   CPU:  pip install torch --index-url https://download.pytorch.org/whl/cpu
-#   CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu118
-#   MPS:  pip install torch (native Apple Silicon support)
-torch>=2.0.0,<3.0.0
+# ============================================================================
+# PYTORCH - Install FIRST, separately (platform-specific)
+# ============================================================================
+# Windows/Linux CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu118
+# Linux/WSL CPU:      pip install torch --index-url https://download.pytorch.org/whl/cpu
+# macOS (Apple Silicon): pip install torch
+#
+# Then run: pip install -r requirements.txt
+# ============================================================================
+
+# Core ML Framework
+torch>=2.0.0
 
 # Diffusion Models and Pipeline
-diffusers>=0.21.0,<0.30.0
+diffusers>=0.30.0
+transformers>=4.40.0
 
 # CPU Offloading for Low-VRAM GPUs
 # Required for sequential CPU offloading (enables inference on 6GB GPUs)
@@ -17,23 +25,60 @@ accelerate>=0.21.0
 
 # DoRA Adapter Support
 # Required for loading DoRA (Weight-Decomposed Low-Rank Adaptation) adapters
-peft>=0.18.0
+peft>=0.12.0
 
-# Web Interface
-gradio>=3.50.0,<4.0.0
+# Web Interface (Gradio 4.x has better compatibility than 3.x)
+gradio>=4.0.0
 
 # Image Processing
-pillow>=10.0.0,<11.0.0
+pillow>=10.0.0
 
 # Model format optimization
-safetensors>=0.3.0,<1.0.0
+safetensors>=0.4.0
 
 # Data processing for CSV search functionality (character/artist autocomplete)
-pandas>=2.0.0,<3.0.0
+pandas>=2.0.0
 
-# Installation Instructions:
-# 1. Install PyTorch for your platform (see note above)
-# 2. Run: pip install -r requirements.txt
+# Additional dependencies (auto-installed but specified for clarity)
+huggingface-hub>=0.20.0
+numpy>=1.24.0
+
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
 #
-# Minimum Python version: 3.8+
-# Recommended Python version: 3.10+
+# 1. Install Python 3.11 or 3.12 (NOT 3.13 - too new for ML packages)
+#    Download from: https://www.python.org/downloads/
+#
+# 2. Install PyTorch with CUDA support:
+#    pip install torch --index-url https://download.pytorch.org/whl/cu118
+#
+# 3. Install remaining dependencies:
+#    pip install -r requirements.txt
+#
+# 4. Verify installation:
+#    python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+#
+# ============================================================================
+# TROUBLESHOOTING
+# ============================================================================
+#
+# Windows Long Path Issues:
+#   If you get "path too long" errors, enable long paths:
+#   1. Run PowerShell as Administrator
+#   2. Run: New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+#   3. Restart computer
+#
+# CUDA Not Detected:
+#   - Ensure NVIDIA drivers are installed
+#   - Verify with: nvidia-smi
+#   - Reinstall PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu118
+#
+# Package Conflicts:
+#   - Use Python 3.11 or 3.12 (avoid 3.13)
+#   - Fresh virtual environment recommended:
+#     python -m venv venv
+#     venv\Scripts\activate  (Windows)
+#     source venv/bin/activate  (Linux/Mac)
+#
+# ============================================================================
