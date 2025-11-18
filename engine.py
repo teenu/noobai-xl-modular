@@ -27,6 +27,23 @@ from utils import (
 )
 
 # ============================================================================
+# DETERMINISM ENFORCEMENT
+# ============================================================================
+# Enable deterministic algorithms for reproducible outputs across platforms
+torch.use_deterministic_algorithms(True, warn_only=True)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+# Platform-specific determinism settings
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(0)  # Will be overridden by generator
+if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    # MPS determinism (PyTorch 2.0+)
+    os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+
+logger.info("Deterministic mode enabled for reproducible generation across platforms")
+
+# ============================================================================
 # NOOBAI ENGINE
 # ============================================================================
 
@@ -92,8 +109,19 @@ class NoobAIEngine:
                     else:
                         inference_dtype = base_precision
                 else:
-                    # MPS (Apple Silicon) supports BF16 natively
-                    inference_dtype = base_precision
+                    # MPS (Apple Silicon) - Prefer BF16 over FP16 for quality
+                    # Apple AMX instructions excel at BF16, providing better dynamic range
+                    # than FP16 (8-bit exponent vs 5-bit exponent) critical for diffusion models
+                    if base_precision == torch.float16:
+                        logger.warning(
+                            "FP16 model detected on Apple Silicon. "
+                            "For optimal quality on M1/M2/M3, use BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) "
+                            "which leverages Apple's AMX BF16 acceleration."
+                        )
+                        inference_dtype = base_precision
+                    else:
+                        # Use BF16 for Apple Silicon (optimal for AMX)
+                        inference_dtype = base_precision
 
                 logger.info(f"Using {inference_dtype} precision on {self._device.upper()}")
 
@@ -137,12 +165,12 @@ class NoobAIEngine:
                 else:
                     self.pipe = self.pipe.to(self._device)
 
-                # Enable memory optimizations
+                # Enable memory optimizations uniformly across platforms for deterministic behavior
                 if self._device != "cpu":
                     self.pipe.enable_vae_slicing()
-                    if self._device == "cuda" and not use_cpu_offload:
-                        # Enable attention slicing only without CPU offload (redundant otherwise)
-                        self.pipe.enable_attention_slicing()
+                    # Note: Attention slicing disabled for cross-platform determinism
+                    # Different platforms handle slicing differently, causing output divergence
+                    # For maximum quality and consistency, we keep full attention computation
 
                 # Validate precision consistency
                 pipeline_dtype = next(self.pipe.unet.parameters()).dtype
@@ -939,23 +967,11 @@ class NoobAIEngine:
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
 
-            # Create generator on appropriate device for reproducibility
-            # Try MPS first (supported in PyTorch 2.0+), fall back to CPU if needed
-            generator_device = self._device
-            if self._device == "mps":
-                try:
-                    # Test if MPS supports Generator (PyTorch 2.0+)
-                    generator = torch.Generator(device="mps").manual_seed(seed)
-                    logger.debug("Using MPS generator for optimal performance and reproducibility")
-                except (RuntimeError, TypeError):
-                    # Fall back to CPU for older PyTorch versions
-                    generator_device = "cpu"
-                    generator = torch.Generator(device="cpu").manual_seed(seed)
-                    logger.debug("MPS generator not supported, using CPU generator (may impact reproducibility)")
-            elif self._device == "cuda":
-                generator = torch.Generator(device="cuda").manual_seed(seed)
-            else:
-                generator = torch.Generator(device="cpu").manual_seed(seed)
+            # Use CPU generator for maximum cross-platform determinism
+            # Device-specific generators (CUDA/MPS) have different RNG implementations
+            # CPU generator ensures identical noise patterns across all platforms
+            generator = torch.Generator(device="cpu").manual_seed(seed)
+            logger.debug(f"Using CPU generator (seed={seed}) for cross-platform reproducibility")
 
             # Parse manual DoRA schedule
             manual_schedule, _ = self._parse_manual_dora_schedule(

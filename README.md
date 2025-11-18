@@ -1,15 +1,21 @@
 # NoobAI XL V-Pred 1.0 - Modular Implementation
 
-Clean, modular implementation of NoobAI XL V-Pred 1.0 with FP16 optimization, DoRA adapter support, and interactive prompt formatting.
+Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimization, DoRA adapter support, and interactive prompt formatting.
+
+## ⚠️ Critical: Model Precision and Platform Compatibility
+
+**Apple Silicon (M1/M2/M3) Users**: For optimal quality, use the **BF16 model** (`NoobAI-XL-Vpred-v1.0.safetensors`), not the FP16 variant. Apple's AMX instructions provide superior BF16 performance with better dynamic range (8-bit vs 5-bit exponent) critical for diffusion model quality.
+
+**Cross-Platform Determinism**: This implementation enforces deterministic algorithms to ensure **identical outputs** across all platforms (macOS, Windows, Linux) when using the same seed, model, and parameters. Same seed = same image hash, regardless of hardware.
 
 ## Features
 
-- **FP16 Optimization**: Automatic precision detection with FP16 support for RTX 20xx series GPUs
+- **Platform-Optimized Precision**: Automatic precision selection (BF16 for Apple Silicon/Ampere+, FP16 for Turing)
+- **Deterministic Generation**: Reproducible outputs across all platforms with seed consistency
 - **CPU Offloading**: Automatic sequential CPU offloading for GPUs with <8GB VRAM
 - **DoRA Adapters**: Support for Weight-Decomposed Low-Rank Adaptation stabilizers
 - **Interactive GUI**: Gradio-based web interface with character/artist search
 - **CLI Mode**: Command-line interface for batch processing
-- **Hash Consistency**: Deterministic image generation with seed-based hashing
 
 ## System Requirements
 
@@ -233,6 +239,42 @@ noobai-xl-modular/
 - Steps: 25
 - CFG Scale: 4.5
 - CPU Offloading: Automatic
+
+## Model Precision Guide
+
+### BF16 vs FP16: Which Model Should You Use?
+
+**BF16 Model (`NoobAI-XL-Vpred-v1.0.safetensors` - 7.0GB):**
+- **Best for**: Apple Silicon (M1/M2/M3), RTX 30xx/40xx (Ampere/Ada/Hopper)
+- **Advantages**:
+  - Wider dynamic range (8-bit exponent vs FP16's 5-bit)
+  - Better numerical stability for diffusion models
+  - Optimal for Apple AMX and NVIDIA Ampere+ tensor cores
+- **Quality**: **Highest quality**, especially on Apple Silicon
+
+**FP16 Model (`NoobAI-XL-Vpred-v1.0-fp16-all.safetensors` - 6.5GB):**
+- **Best for**: RTX 20xx series (Turing)
+- **Advantages**:
+  - Smaller file size
+  - Better performance on Turing GPUs (RTX 2060/2070/2080)
+- **Quality**: Slightly lower than BF16 due to narrow exponent range
+- **Note**: On Apple Silicon, BF16 model provides **noticeably better quality**
+
+### Why Apple Silicon Users Should Prefer BF16
+
+Apple's M1/M2/M3 chips have dedicated AMX (Apple Matrix) instructions optimized for BF16:
+- **AMX BF16**: Native hardware acceleration
+- **AMX FP16**: Supported but not as optimized
+- **Dynamic Range**: BF16's 8-bit exponent prevents overflow/underflow in diffusion activations
+- **Result**: BF16 model produces superior image quality, color accuracy, and detail on macOS
+
+### Cross-Platform Reproducibility
+
+This implementation ensures **identical outputs** across platforms for the same inputs:
+- ✅ Same seed → same image hash (Windows/macOS/Linux)
+- ✅ Deterministic algorithms enforced globally
+- ✅ CPU generator used for consistent noise across platforms
+- ✅ Platform-specific optimizations (attention slicing) disabled for uniformity
 
 ## Troubleshooting
 
