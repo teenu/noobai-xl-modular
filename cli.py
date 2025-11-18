@@ -232,7 +232,7 @@ Examples:
   %(prog)s --list-dora-adapters                     # List available DoRA adapters
   %(prog)s --cli --prompt "anime girl" --enable-dora  # CLI with DoRA adapter (auto-detect)
   %(prog)s --cli --prompt "fantasy" --enable-dora --dora-adapter 0  # Select by index
-  %(prog)s --cli --prompt "portrait" --enable-dora --dora-name "noobai_vp10_stabilizer_v0.271_fp16.safetensors"  # Select by name
+  %(prog)s --cli --prompt "portrait" --enable-dora --dora-name "noobai_vp10_stabilizer_v0.280a.safetensors"  # Select by name
   %(prog)s --cli --prompt "portrait" --enable-dora --dora-path /path/to/dora.safetensors --adapter-strength 0.8 --dora-start-step 10  # DoRA activates at step 10/35
   %(prog)s --cli --prompt "landscape" --enable-dora --dora-start-step 1   # DoRA active from first step (default)
   %(prog)s --cli --prompt "abstract art" --enable-dora --dora-start-step 25 --steps 40  # Late DoRA activation for subtle effects
@@ -281,7 +281,7 @@ Examples:
     parser.add_argument(
         "--dora-name",
         type=str,
-        help="Select DoRA adapter by filename (e.g., 'noobai_vp10_stabilizer_v0.271_fp16.safetensors')"
+        help="Select DoRA adapter by filename (e.g., 'noobai_vp10_stabilizer_v0.280a.safetensors')"
     )
     parser.add_argument(
         "--dora-path",

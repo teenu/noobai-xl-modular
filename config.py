@@ -23,13 +23,12 @@ except ImportError:
     SAFETENSORS_AVAILABLE = False
     logger.warning("safetensors not available. Adapter precision detection will be limited.")
 
-# Dtype mapping for efficient header-based precision detection
+# Dtype mapping for header-based precision detection
+# Only BF16 and FP32 are supported for lossless quality
 DTYPE_MAP = {
     'F32': torch.float32,
-    'F16': torch.float16,
     'BF16': torch.bfloat16,
     'FLOAT': torch.float32,
-    'HALF': torch.float16
 }
 
 # ============================================================================
@@ -163,12 +162,10 @@ DEFAULT_NEGATIVE_PROMPT = "worst aesthetic, worst quality, lowres, scan artifact
 DEFAULT_POSITIVE_PREFIX = "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres"
 
 # Model search paths
-# Use absolute paths to avoid CWD dependency issues
-# Prioritize BF16 model (canonical/highest quality) - will be upcast to FP32 on non-BF16 platforms
+# ONLY BF16 model supported for lossless quality and cross-platform parity
+# FP16 models are NOT supported (lossy quantization from BF16)
 _model_filenames = [
-    "NoobAI-XL-Vpred-v1.0.safetensors",            # BF16 (canonical, highest quality, lossless)
-    "NoobAI-XL-Vpred-v1.0-fp16-all.safetensors",  # FP16 (will be upcast to FP32 for consistency)
-    "NoobAI-XL-Vpred-v1.0-fp16.safetensors",       # FP16 variant (will be upcast to FP32)
+    "NoobAI-XL-Vpred-v1.0.safetensors",  # BF16 (canonical, ONLY supported model)
 ]
 
 _search_directories = [

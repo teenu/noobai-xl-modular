@@ -79,14 +79,20 @@ class NoobAIEngine:
 
                 logger.info(f"Using device: {self._device.upper()}")
 
-                # Detect base model precision
+                # Detect and validate model precision (ONLY BF16 supported)
                 base_precision = detect_base_model_precision(self.model_path)
 
-                # CRITICAL: For lossless quality and cross-platform parity, we enforce:
-                # 1. BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) is canonical/highest quality
-                # 2. Platforms without BF16 → upcast to FP32 (lossless)
-                # 3. Never downcast to FP16 (lossy compared to BF16)
-                # 4. All platforms use identical precision pipeline
+                # LOSSLESS QUALITY ENFORCEMENT:
+                # - BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) is ONLY supported model
+                # - FP16 models are rejected (lossy quantization from BF16)
+                # - Platforms without BF16 → upcast to FP32 (lossless)
+                # - All platforms use identical precision pipeline for parity
+
+                if base_precision != torch.bfloat16:
+                    raise ValueError(
+                        f"Model precision validation failed: expected BF16, got {base_precision}. "
+                        f"Only BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) is supported."
+                    )
 
                 # Check platform BF16 support
                 bf16_supported = False
@@ -105,36 +111,18 @@ class NoobAIEngine:
                     # CPU supports BF16 but slow; use FP32
                     bf16_supported = False
 
-                # Determine inference precision based on model and platform
-                if base_precision == torch.bfloat16:
-                    if bf16_supported:
-                        # Use BF16 natively for optimal quality and performance
-                        inference_dtype = torch.bfloat16
-                        logger.info("Using native BF16 precision (optimal quality)")
-                    else:
-                        # Upcast BF16 → FP32 (lossless) for platforms without BF16 support
-                        inference_dtype = torch.float32
-                        gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
-                        logger.warning(
-                            f"{gpu_name} does not support BF16 tensor cores. "
-                            f"Upcasting to FP32 (lossless) for quality preservation. "
-                            f"Note: Slower than BF16 but maintains full precision."
-                        )
-                elif base_precision == torch.float16:
-                    # FP16 model detected - warn user about quality loss
-                    logger.warning(
-                        "FP16 model detected (NoobAI-XL-Vpred-v1.0-fp16*.safetensors). "
-                        "For highest quality and cross-platform parity, use BF16 model "
-                        "(NoobAI-XL-Vpred-v1.0.safetensors) which will be upcast to FP32 on "
-                        "platforms without BF16 support."
-                    )
-                    # Upcast FP16 → FP32 for consistency
-                    inference_dtype = torch.float32
+                # Select inference precision: BF16 (native) or FP32 (lossless upcast)
+                if bf16_supported:
+                    inference_dtype = torch.bfloat16
+                    logger.info("Using native BF16 precision (optimal)")
                 else:
-                    # FP32 or other precision
-                    inference_dtype = base_precision
-
-                logger.info(f"Inference precision: {inference_dtype} (base model: {base_precision})")
+                    inference_dtype = torch.float32
+                    gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+                    logger.warning(
+                        f"{gpu_name} does not support BF16. "
+                        f"Upcasting to FP32 (lossless, slower). "
+                        f"Quality preserved, cross-platform parity ensured."
+                    )
 
                 # Load pipeline with lossless VAE precision
                 # VAE runs in FP32 for highest quality decode (prevents color banding/artifacts)
@@ -259,12 +247,11 @@ class NoobAIEngine:
             pipeline_dtype = next(self.pipe.unet.parameters()).dtype
 
             logger.info(f"Loading DoRA adapter: {validated_path}")
-            logger.info(f"Adapter stored as: {adapter_precision}, Pipeline using: {pipeline_dtype}")
+            logger.info(f"Adapter precision: {adapter_precision}, Pipeline: {pipeline_dtype}")
 
-            if adapter_precision == "fp16" and pipeline_dtype == torch.bfloat16:
-                logger.info("DoRA adapter will be automatically converted from FP16 to BF16")
-            elif adapter_precision == "fp16" and pipeline_dtype == torch.float32:
-                logger.info("DoRA adapter will be automatically converted from FP16 to FP32")
+            # Diffusers library handles precision conversion automatically
+            if adapter_precision != "bfloat16" and adapter_precision != "fp32":
+                logger.info(f"DoRA adapter will be automatically converted to {pipeline_dtype}")
 
             # Load DoRA adapter using the LoRA loading mechanism
             # The diffusers library will handle precision conversion automatically

@@ -272,13 +272,13 @@ def validate_dora_path(path: str) -> Tuple[bool, str]:
     )
 
 def detect_base_model_precision(model_path: str) -> torch.dtype:
-    """Detect the native precision using lightweight header analysis (400x faster)."""
+    """Detect and validate model precision (ONLY BF16 supported for lossless quality)."""
     try:
         # Read only the safetensors header (tiny compared to full model)
         with open(model_path, 'rb') as f:
             # Read header size (8 bytes)
             header_size = struct.unpack('<Q', f.read(8))[0]
-            # Read header JSON (typically ~350KB vs 6.6GB full model)
+            # Read header JSON (typically ~350KB vs 7.0GB full model)
             header_data = json.loads(f.read(header_size).decode('utf-8'))
 
         # Find first UNet tensor dtype from header metadata
@@ -288,23 +288,41 @@ def detect_base_model_precision(model_path: str) -> torch.dtype:
         if unet_tensors:
             # Get dtype from first UNet tensor
             dtype_str = list(unet_tensors.values())[0]['dtype']
-            detected_dtype = DTYPE_MAP.get(dtype_str, torch.bfloat16)
-            logger.info(f"Detected base model native precision: {detected_dtype} (from header)")
+            detected_dtype = DTYPE_MAP.get(dtype_str)
+
+            if detected_dtype is None:
+                raise ValueError(
+                    f"Unsupported model precision: {dtype_str}. "
+                    f"Only BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) is supported. "
+                    f"FP16 models are NOT supported due to lossy quantization."
+                )
+
+            if detected_dtype == torch.float16:
+                raise ValueError(
+                    f"FP16 model detected. FP16 models are NOT supported. "
+                    f"Use BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) for lossless quality "
+                    f"and cross-platform parity."
+                )
+
+            logger.info(f"Model precision: {detected_dtype} (validated)")
             return detected_dtype
 
-        # Fallback for modern SDXL models
+        # Default to BF16 (canonical format)
         logger.info("Using BF16 as default for SDXL model")
         return torch.bfloat16
 
+    except ValueError:
+        # Re-raise validation errors
+        raise
     except (IOError, OSError) as e:
-        logger.warning(f"Could not read model file for precision detection: {e}")
-        return torch.bfloat16
-    except (json.JSONDecodeError, KeyError, ValueError) as e:
-        logger.warning(f"Could not parse model header for precision detection: {e}")
-        return torch.bfloat16
+        logger.error(f"Could not read model file: {e}")
+        raise
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.error(f"Could not parse model header: {e}")
+        raise
     except Exception as e:
-        logger.warning(f"Unexpected error detecting base model precision: {e}")
-        return torch.bfloat16
+        logger.error(f"Unexpected error detecting model precision: {e}")
+        raise
 
 def detect_adapter_precision(adapter_path: str) -> str:
     """Detect the precision of a DoRA adapter file using filename heuristic."""

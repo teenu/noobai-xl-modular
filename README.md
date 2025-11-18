@@ -2,17 +2,23 @@
 
 Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimization, DoRA adapter support, and interactive prompt formatting.
 
-## ⚠️ Critical: Lossless Quality and Platform Parity
+## ⚠️ Critical: BF16-Only for Lossless Quality
 
-**All Users - Use BF16 Model**: For lossless quality and cross-platform parity, use **`NoobAI-XL-Vpred-v1.0.safetensors`** (BF16) - the canonical, developer-intended highest quality model.
+**ONLY BF16 Model Supported**: This implementation **exclusively** supports **`NoobAI-XL-Vpred-v1.0.safetensors`** (BF16) - the canonical, developer-intended highest quality model. **FP16 models are NOT supported** due to lossy quantization.
+
+**Why BF16-Only?**
+- FP16 models were created via **lossy quantization** from BF16
+- Even with FP32 upcast, FP16 model weights are **already degraded**
+- Cannot recover lost precision from FP16 conversion
+- BF16-only ensures developer-intended quality on ALL platforms
 
 **Automatic Precision Handling**:
 - **Platforms with BF16 support** (Apple Silicon, RTX 30xx/40xx): Native BF16 execution
 - **Platforms without BF16** (RTX 20xx, older GPUs): Automatic lossless upcast to FP32
-- **VAE**: Always runs in FP32 for lossless image decode (prevents quantization artifacts)
+- **VAE**: Always runs in FP32 for lossless image decode
 - **Result**: Identical quality and output hashes across all platforms
 
-**Cross-Platform Determinism**: Same seed + same model + same parameters = **identical image hash** on macOS, Windows, and Linux. No platform-dependent variance.
+**Cross-Platform Determinism**: Same seed = **identical image hash** on macOS, Windows, and Linux.
 
 ## Features
 
@@ -39,8 +45,9 @@ Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimizatio
 - CUDA 11.8 or newer
 
 ### GPU Compatibility
-- **RTX 20xx series (Turing)**: FP16 optimized (use `-fp16-all.safetensors` model)
-- **RTX 30xx/40xx series (Ampere/Ada)**: FP16 or BF16 supported
+- **RTX 20xx series (Turing)**: BF16 model upcast to FP32 (slower but lossless)
+- **RTX 30xx/40xx series (Ampere/Ada)**: Native BF16 support (optimal)
+- **Apple Silicon (M1/M2/M3)**: Native BF16 via AMX (optimal)
 - **<8GB VRAM**: Automatic CPU offloading enabled
 - **≥8GB VRAM**: Full GPU loading
 
@@ -97,14 +104,14 @@ Alternatively, use a shorter installation path like `C:\noobai\` instead of deep
 
 ### 3. Download Model File
 
-**REQUIRED - Canonical Model (All Platforms):**
+**REQUIRED - BF16 Model (ONLY Supported Format):**
 - `NoobAI-XL-Vpred-v1.0.safetensors` (7.0GB, BF16)
 
-**Why this model?**
+**Why ONLY BF16?**
 - Developer's canonical, highest-quality version
+- FP16 models are **NOT supported** (lossy quantization from BF16)
 - Lossless quality on ALL platforms (auto-upcast to FP32 if needed)
 - Cross-platform parity guaranteed
-- FP16 models will be upcast to FP32 (quality preserved but not recommended)
 
 The application will automatically detect the model file in:
 - Repository root directory
@@ -112,7 +119,7 @@ The application will automatically detect the model file in:
 - `~/Downloads/`
 - `~/Models/`
 
-**Note**: If using FP16 model, you'll see a warning. For guaranteed quality parity, use BF16.
+**Important**: FP16 models will be **rejected** with an error. Only BF16 is supported.
 
 ### 4. Download Style Data (Required for GUI)
 
@@ -133,8 +140,10 @@ The `style/` directory contains character and artist databases for autocomplete 
 DoRA (Weight-Decomposed Low-Rank Adaptation) adapters provide image stabilization:
 
 **Download and place in `dora/` directory:**
-- `noobai_vp10_stabilizer_v0.271_fp16.safetensors` (44MB)
-- `noobai_vp10_stabilizer_v0.280a_fp16.safetensors` (64MB)
+- `noobai_vp10_stabilizer_v0.271.safetensors` (44MB)
+- `noobai_vp10_stabilizer_v0.280a.safetensors` (64MB)
+
+**Note**: DoRA adapters in any precision format are automatically converted to match the pipeline precision.
 
 **Without DoRA adapters:** DoRA functionality will be unavailable but the application will run normally.
 
@@ -252,47 +261,60 @@ noobai-xl-modular/
 
 ## Model Precision Guide
 
-### Why BF16 Model is Required for Quality Parity
+### Why ONLY BF16 Model is Supported
 
-**BF16 Model (`NoobAI-XL-Vpred-v1.0.safetensors` - 7.0GB):**
+**BF16 Model (`NoobAI-XL-Vpred-v1.0.safetensors` - 7.0GB) - ONLY Supported:**
 - ✅ **Developer's canonical, highest-quality version**
-- ✅ **Works on ALL platforms** (auto-upcast to FP32 if no BF16 support)
-- ✅ **Lossless quality** (BF16 → FP32 upcast preserves all precision)
-- ✅ **Cross-platform parity** (identical outputs on macOS/Windows/Linux)
+- ✅ **Lossless quality on ALL platforms** (BF16 native or FP32 upcast)
+- ✅ **Cross-platform parity** (identical outputs across all platforms)
 - ✅ **FP32 VAE** (prevents color banding and quantization artifacts)
 
-**Platform Behavior:**
-- **Apple Silicon (M1/M2/M3)**: Native BF16 via AMX instructions (optimal)
-- **RTX 30xx/40xx (Ampere/Ada)**: Native BF16 via tensor cores (optimal)
-- **RTX 20xx (Turing)**: Upcast to FP32 (lossless but slower)
-- **Older GPUs**: Upcast to FP32 (lossless but slower)
+**FP16 Models - NOT Supported (Rejected with Error):**
+- ❌ Created via **lossy quantization** from BF16
+- ❌ Model weights **already degraded** during FP16 conversion
+- ❌ Cannot recover lost precision (even with FP32 upcast)
+- ❌ Contradicts lossless quality requirement
+- ❌ Application will **refuse to load** FP16 models
 
-**FP16 Models (NOT recommended):**
-- ⚠️ Will be upcast to FP32 for consistency
-- ⚠️ Quality preserved via upcast but defeats purpose of smaller file
-- ⚠️ Use BF16 model for developer-intended quality
+### Platform Behavior
 
-### Precision Pipeline Explained
+**Apple Silicon (M1/M2/M3):**
+- Native BF16 via AMX instructions
+- Optimal performance + quality
 
-**For Lossless Quality:**
-1. **BF16 model** loaded from disk
-2. **Platforms with BF16**: Run BF16 inference natively
-3. **Platforms without BF16**: Lossless upcast to FP32
-4. **VAE**: Always FP32 for lossless decode
-5. **Result**: Identical quality across all platforms
+**RTX 30xx/40xx (Ampere/Ada/Hopper):**
+- Native BF16 via tensor cores
+- Optimal performance + quality
 
-**Why FP32 for non-BF16 platforms?**
-- BF16 → FP32 = **lossless** (BF16 range ⊂ FP32 range)
-- BF16 → FP16 = **lossy** (incompatible exponent/mantissa trade-offs)
-- FP32 guarantees numerical parity across platforms
+**RTX 20xx (Turing):**
+- BF16 → FP32 lossless upcast
+- Slower but **identical quality** to other platforms
 
-### Cross-Platform Reproducibility Guarantees
+**Older GPUs:**
+- BF16 → FP32 lossless upcast
+- Slower but **identical quality** to other platforms
+
+### Precision Pipeline
+
+**Lossless Quality Enforcement:**
+1. BF16 model loaded and validated (FP16 rejected)
+2. Platforms with BF16 → native BF16 inference
+3. Platforms without BF16 → lossless FP32 upcast
+4. VAE always runs in FP32 (lossless decode)
+5. Result: Identical quality + identical hashes across platforms
+
+**Why FP32 upcast (not FP16)?**
+- BF16 → FP32 = **lossless** (mathematical subset)
+- BF16 → FP16 = **lossy** (incompatible formats)
+- FP32 guarantees numerical parity
+
+### Cross-Platform Reproducibility
 
 ✅ **Same seed → same image hash** (macOS/Windows/Linux)
 ✅ **Deterministic algorithms enforced**
 ✅ **CPU generator for consistent RNG**
-✅ **Uniform precision pipeline** (no platform-specific optimizations)
-✅ **FP32 VAE** (eliminates decode variance)
+✅ **BF16-only policy** (no precision variance)
+✅ **FP32 VAE** (no decode variance)
 
 ## Troubleshooting
 
@@ -323,9 +345,10 @@ This is a known Windows-specific issue where pip's cache can become corrupted du
 
 ### CUDA out of memory
 - Model automatically enables CPU offloading for GPUs <8GB VRAM
-- Reduce resolution (try 512x768)
+- Reduce resolution (try 512x768 or 768x1024)
+- Reduce inference steps (try 25 instead of 35)
 - Close other GPU applications
-- Use FP16 model variant instead of BF16
+- Ensure you're using the BF16 model (only supported format)
 
 ### DoRA adapters not loading
 - Verify `peft` is installed: `pip install peft>=0.18.0`
