@@ -36,11 +36,9 @@ torch.backends.cudnn.benchmark = False
 
 # Platform-specific determinism settings
 if torch.cuda.is_available():
-    # CRITICAL: Configure CuBLAS for deterministic operations (CUDA 10.2+)
-    # Required for cross-platform hash consistency
+    # Configure CuBLAS for deterministic operations
     if 'CUBLAS_WORKSPACE_CONFIG' not in os.environ:
         os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-        logger.debug("Set CUBLAS_WORKSPACE_CONFIG=:4096:8 for deterministic CUDA operations")
     else:
         existing_value = os.environ['CUBLAS_WORKSPACE_CONFIG']
         if existing_value not in [':4096:8', ':16:8']:
@@ -48,11 +46,8 @@ if torch.cuda.is_available():
                 f"CUBLAS_WORKSPACE_CONFIG is set to '{existing_value}' "
                 f"(expected ':4096:8' or ':16:8'). Determinism may be affected."
             )
-        else:
-            logger.debug(f"CUBLAS_WORKSPACE_CONFIG already set: {existing_value}")
-    torch.cuda.manual_seed_all(0)  # Will be overridden by generator
+    torch.cuda.manual_seed_all(0)
 if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-    # macOS-specific: Enable MPS fallback for unsupported operations
     os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
 logger.info("Deterministic mode enabled for reproducible generation across platforms")
@@ -93,16 +88,9 @@ class NoobAIEngine:
 
                 logger.info(f"Using device: {self._device.upper()}")
 
-                # Detect and validate model precision (BF16 or pre-converted FP32 supported)
+                # Detect and validate model precision
                 base_precision = detect_base_model_precision(self.model_path)
                 is_directory = os.path.isdir(self.model_path)
-
-                # LOSSLESS QUALITY ENFORCEMENT:
-                # - BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) - canonical single file
-                # - FP32 pre-converted (NoobAI-XL-Vpred-v1.0-FP32/) - diffusers directory, lossless
-                # - FP16 models are rejected (lossy quantization from BF16)
-                # - Platforms without BF16 → upcast to FP32 (lossless)
-                # - All platforms use identical precision pipeline for parity
 
                 if base_precision not in [torch.bfloat16, torch.float32]:
                     raise ValueError(
@@ -116,58 +104,42 @@ class NoobAIEngine:
                     try:
                         compute_capability = torch.cuda.get_device_capability(0)
                         bf16_supported = compute_capability[0] >= 8
-                        logger.debug(f"GPU compute capability: {compute_capability}, BF16 support: {bf16_supported}")
-                    except (AttributeError, RuntimeError) as e:
-                        logger.debug(f"Could not check CUDA compute capability: {e}")
+                    except (AttributeError, RuntimeError):
+                        pass
                 elif self._device == "mps":
-                    # Apple Silicon supports BF16 natively via AMX
                     bf16_supported = True
-                    logger.debug("Apple Silicon MPS: BF16 natively supported")
                 elif self._device == "cpu":
-                    # CPU supports BF16 but slow; use FP32
                     bf16_supported = False
 
-                # Select inference precision: BF16 (native) or FP32 (lossless upcast)
+                # Select inference precision
                 if bf16_supported:
                     inference_dtype = torch.bfloat16
-                    logger.info("Using native BF16 precision (optimal)")
+                    logger.info("Using BF16 precision")
                 else:
                     inference_dtype = torch.float32
                     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
-                    logger.warning(
-                        f"{gpu_name} does not support BF16. "
-                        f"Upcasting to FP32 (lossless, slower). "
-                        f"Quality preserved, cross-platform parity ensured."
-                    )
-
-                # Load pipeline with lossless VAE precision
-                # VAE runs in FP32 for highest quality decode (prevents color banding/artifacts)
-                logger.info("Loading VAE in FP32 for lossless image decode")
+                    logger.info(f"{gpu_name} does not support BF16. Using FP32.")
 
                 from diffusers import AutoencoderKL
 
-                # Determine if pre-converted FP32 model (already in optimal format)
+                # Load FP32 pre-converted model or BF16 model with precision selection
                 if base_precision == torch.float32 and is_directory:
-                    # FP32 pre-converted model - load from diffusers directory
-                    logger.info("Loading FP32 pre-converted model (17.6× faster initialization)")
+                    logger.info("Loading FP32 pre-converted model")
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         self.model_path,
                         dtype=torch.float32,
                     )
-                    logger.info(f"Pipeline loaded: UNet/TextEncoders/VAE=FP32 (pre-converted)")
+                    logger.info("Pipeline loaded: UNet/TextEncoders/VAE=FP32")
 
                 else:
-                    # BF16 single file - load with precision selection
-                    logger.info("Loading BF16 model with runtime precision selection")
+                    logger.info("Loading BF16 model")
 
-                    # Load VAE separately in FP32
                     vae = AutoencoderKL.from_single_file(
                         self.model_path,
                         dtype=torch.float32,
                         use_safetensors=True,
                     )
 
-                    # Load pipeline with inference precision, but override VAE
                     self.pipe = StableDiffusionXLPipeline.from_single_file(
                         self.model_path,
                         dtype=inference_dtype,
@@ -185,37 +157,26 @@ class NoobAIEngine:
                     timestep_spacing="trailing"
                 )
 
-                # Move to device and enable optimizations
-                # Use CPU offloading for GPUs with limited VRAM to reduce memory pressure
-                use_cpu_offload = False
+                # Move to device
                 if self._device == "cuda":
                     try:
                         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
                         gpu_name = torch.cuda.get_device_name(0)
 
-                        # Enable CPU offloading for GPUs <8GB to reduce VRAM usage and avoid swapping
                         if vram_gb < 8.0:
-                            use_cpu_offload = True
-                            logger.info(
-                                f"GPU ({gpu_name}) has {vram_gb:.1f}GB VRAM. "
-                                f"Enabling sequential CPU offloading for optimal performance."
-                            )
+                            logger.info(f"GPU ({gpu_name}): {vram_gb:.1f}GB VRAM. Enabling CPU offloading.")
                             self.pipe.enable_sequential_cpu_offload()
                         else:
-                            logger.info(f"GPU ({gpu_name}) has {vram_gb:.1f}GB VRAM. Using full GPU loading.")
+                            logger.info(f"GPU ({gpu_name}): {vram_gb:.1f}GB VRAM")
                             self.pipe = self.pipe.to(self._device)
-                    except Exception as e:
-                        logger.debug(f"Could not detect VRAM capacity: {e}. Using full GPU loading.")
+                    except Exception:
                         self.pipe = self.pipe.to(self._device)
                 else:
                     self.pipe = self.pipe.to(self._device)
 
-                # Enable memory optimizations uniformly across platforms for deterministic behavior
+                # Enable memory optimizations
                 if self._device != "cpu":
                     self.pipe.enable_vae_slicing()
-                    # Note: Attention slicing disabled for cross-platform determinism
-                    # Different platforms handle slicing differently, causing output divergence
-                    # For maximum quality and consistency, we keep full attention computation
 
                 # Validate precision consistency
                 pipeline_dtype = next(self.pipe.unet.parameters()).dtype
@@ -1017,11 +978,7 @@ class NoobAIEngine:
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
 
-            # Use CPU generator for maximum cross-platform determinism
-            # Device-specific generators (CUDA/MPS) have different RNG implementations
-            # CPU generator ensures identical noise patterns across all platforms
             generator = torch.Generator(device="cpu").manual_seed(seed)
-            logger.debug(f"Using CPU generator (seed={seed}) for cross-platform reproducibility")
 
             # Parse manual DoRA schedule
             manual_schedule, _ = self._parse_manual_dora_schedule(
@@ -1204,35 +1161,29 @@ class NoobAIEngine:
                 logger.error(f"Failed to reset some state variables: {', '.join(reset_failures)}")
 
     def _synchronize_device(self) -> None:
-        """Synchronize device operations to ensure all pending GPU operations complete.
-
-        Critical for DoRA weight changes to prevent race conditions where adapter
-        weights are modified before previous operations finish.
-        """
+        """Synchronize device operations."""
         try:
             if self._device == "mps":
                 try:
                     torch.mps.synchronize()
                 except (AttributeError, RuntimeError):
-                    pass  # Older PyTorch versions or MPS not available
+                    pass
             elif self._device == "cuda":
                 try:
                     torch.cuda.synchronize()
                 except (AttributeError, RuntimeError):
-                    pass  # CUDA not available
-        except Exception as e:
-            logger.debug(f"Could not synchronize device: {e}")
+                    pass
+        except Exception:
+            pass
 
     def clear_memory(self) -> None:
-        """Clear GPU/memory caches with proper synchronization."""
+        """Clear GPU/memory caches."""
         try:
-            # Synchronize GPU operations before clearing cache to ensure
-            # all pending operations complete (replaces unreliable time.sleep)
             self._synchronize_device()
             if self._device == "mps":
                 torch.mps.empty_cache()
             elif self._device == "cuda":
                 torch.cuda.empty_cache()
             gc.collect()
-        except Exception as e:
-            logger.warning(f"Could not clear memory cache: {e}")
+        except Exception:
+            pass

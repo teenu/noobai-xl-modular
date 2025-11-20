@@ -23,8 +23,6 @@ except ImportError:
     SAFETENSORS_AVAILABLE = False
     logger.warning("safetensors not available. Adapter precision detection will be limited.")
 
-# Dtype mapping for header-based precision detection
-# Only BF16 and FP32 are supported for lossless quality
 DTYPE_MAP = {
     'F32': torch.float32,
     'BF16': torch.bfloat16,
@@ -161,49 +159,38 @@ OPTIMAL_SETTINGS = {
 DEFAULT_NEGATIVE_PROMPT = "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits"
 DEFAULT_POSITIVE_PREFIX = "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres"
 
-# Model search paths
-# Supported models:
-# 1. BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) - canonical, single file
-# 2. FP32 pre-converted (NoobAI-XL-Vpred-v1.0-FP32/) - diffusers directory, lossless conversion
-# FP16 models are NOT supported (lossy quantization from BF16)
 _model_filenames = [
-    "NoobAI-XL-Vpred-v1.0.safetensors",  # BF16 (canonical single file)
+    "NoobAI-XL-Vpred-v1.0.safetensors",
 ]
 
-# Also support FP32 pre-converted diffusers directory
 _model_directories = [
-    "NoobAI-XL-Vpred-v1.0-FP32",  # FP32 pre-converted directory
+    "NoobAI-XL-Vpred-v1.0-FP32",
 ]
 
 _search_directories = [
-    _script_dir,                                        # Script directory
-    os.path.join(_script_dir, "models"),               # Models subdirectory
-    os.path.join(os.path.expanduser("~"), "Downloads"), # User Downloads
-    os.path.join(os.path.expanduser("~"), "Models"),   # User Models directory
+    _script_dir,
+    os.path.join(_script_dir, "models"),
+    os.path.join(os.path.expanduser("~"), "Downloads"),
+    os.path.join(os.path.expanduser("~"), "Models"),
 ]
 
-# Optional: Allow custom model path via environment variable
 if 'NOOBAI_MODEL_PATH' in os.environ:
     custom_path = os.environ['NOOBAI_MODEL_PATH']
     if os.path.isdir(custom_path):
         _search_directories.append(custom_path)
 
-# Search for both single files and directories
-# Prioritize FP32 directories for better performance on non-BF16 GPUs
 MODEL_SEARCH_PATHS = [
     os.path.join(directory, dirname)
     for directory in _search_directories
-    for dirname in _model_directories  # FP32 directories checked first
+    for dirname in _model_directories
 ] + [
     os.path.join(directory, filename)
     for directory in _search_directories
-    for filename in _model_filenames  # BF16 files checked second
+    for filename in _model_filenames
 ]
 
-# DoRA adapter search directories
-# Use absolute paths to avoid CWD dependency issues
 DORA_SEARCH_DIRECTORIES = [
-    os.path.join(_script_dir, "dora"),  # Dora subdirectory in script directory
-    _script_dir,  # Script directory root
-    os.path.join(os.path.expanduser("~"), "Downloads", "dora")  # User Downloads/dora
+    os.path.join(_script_dir, "dora"),
+    _script_dir,
+    os.path.join(os.path.expanduser("~"), "Downloads", "dora")
 ]

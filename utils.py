@@ -33,80 +33,51 @@ def get_user_friendly_error(error: Exception) -> str:
 
 @lru_cache(maxsize=1)
 def _get_allowed_directories() -> tuple:
-    """Get list of allowed directories for model/adapter files.
-
-    Returns tuple for hashability (required by lru_cache).
-    Cached as directory list rarely changes during runtime.
-    """
+    """Get list of allowed directories for model/adapter files."""
     allowed = [
-        os.getcwd(),  # Current working directory
-        os.path.expanduser("~"),  # User home directory
-        os.path.expanduser("~/Downloads"),  # User Downloads
-        os.path.expanduser("~/Documents"),  # User Documents
-        os.path.expanduser("~/Models"),  # Common models directory
-        "/tmp",  # Temporary directory (for user convenience, but logged)
+        os.getcwd(),
+        os.path.expanduser("~"),
+        os.path.expanduser("~/Downloads"),
+        os.path.expanduser("~/Documents"),
+        os.path.expanduser("~/Models"),
+        "/tmp",
     ]
 
-    # Normalize all paths and resolve symlinks
-    # Return as tuple for lru_cache hashability
     return tuple(os.path.realpath(os.path.normpath(d)) for d in allowed if os.path.exists(d))
 
 def _is_path_in_allowed_directory(path: str, allowed_dirs: Sequence[str]) -> Tuple[bool, Optional[str]]:
-    """
-    Check if path is within allowed directories using robust path validation.
-
-    Args:
-        path: Path to validate
-        allowed_dirs: Sequence of allowed directory paths (list or tuple)
-
-    Returns:
-        Tuple of (is_allowed, reason)
-        - is_allowed: True if path is in allowed directory
-        - reason: If not allowed, reason why; if allowed and in /tmp, warning message
-    """
-    # Resolve to real path (follows symlinks) and normalize
+    """Check if path is within allowed directories."""
     try:
         real_path = os.path.realpath(os.path.normpath(path))
     except Exception as e:
         return False, f"Cannot resolve path: {e}"
 
-    # Additional security: detect potential path traversal attempts
     if '..' in path or path != os.path.normpath(path):
         logger.warning(f"Path traversal attempt detected: {path}")
 
-    # Check if path is within any allowed directory using robust method
     for allowed_dir in allowed_dirs:
         try:
-            # Normalize both paths for consistent comparison
             allowed_dir_real = os.path.realpath(os.path.normpath(allowed_dir))
 
-            # Method 1: Check if real_path starts with allowed_dir
-            # Must check with os.sep to prevent partial matches (e.g., /home vs /home2)
             if real_path == allowed_dir_real:
-                # Exact match to allowed directory
                 if allowed_dir_real == os.path.realpath("/tmp"):
                     return True, f"⚠️ File in temporary directory: {real_path}"
                 return True, None
             elif real_path.startswith(allowed_dir_real + os.sep):
-                # Subdirectory of allowed directory
-                # Additional check: ensure no path components escape the allowed dir
                 try:
-                    # Verify path doesn't escape via symlinks
                     common_path = os.path.commonpath([real_path, allowed_dir_real])
                     if common_path != allowed_dir_real:
-                        continue  # Path escapes, check next allowed dir
+                        continue
                 except (ValueError, TypeError):
-                    continue  # Invalid comparison, check next allowed dir
+                    continue
 
                 if allowed_dir_real == os.path.realpath("/tmp"):
                     return True, f"⚠️ File in temporary directory: {real_path}"
                 return True, None
 
-        except Exception as e:
-            logger.debug(f"Error checking path against {allowed_dir}: {e}")
+        except Exception:
             continue
 
-    # Not in any allowed directory
     return False, f"File must be in an allowed directory (current directory, home, Downloads, Documents, or Models)"
 
 def _validate_file_path(
@@ -186,12 +157,9 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
         return False, "Please provide a model path"
 
     try:
-        # Normalize and validate path
         normalized_path = os.path.normpath(os.path.abspath(path))
 
-        # Windows long path limitation check
-        if os.name == 'nt':  # Windows only
-            # Extended-length path support check
+        if os.name == 'nt':
             if len(normalized_path) > 260 and not normalized_path.startswith('\\\\?\\'):
                 return False, (
                     f"Path too long for Windows ({len(normalized_path)} characters, limit 260).\n"
@@ -204,9 +172,7 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
         if not os.path.exists(normalized_path):
             return False, f"Model not found: {normalized_path}"
 
-        # Support both files (.safetensors) and directories (diffusers format)
         if os.path.isdir(normalized_path):
-            # Diffusers directory format - check for required subdirectories
             unet_path = os.path.join(normalized_path, "unet")
             vae_path = os.path.join(normalized_path, "vae")
 
@@ -216,7 +182,6 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
             if not os.path.isdir(vae_path):
                 return False, f"Invalid diffusers directory: missing 'vae' subdirectory"
 
-            # Security: Check directory containment
             allowed_dirs = _get_allowed_directories()
             is_allowed, reason = _is_path_in_allowed_directory(normalized_path, allowed_dirs)
 
@@ -229,13 +194,12 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
             return True, normalized_path
 
         else:
-            # Single file format - use original validation
             return _validate_file_path(
                 path=path,
                 file_type="Model",
                 allowed_extensions=MODEL_CONFIG.SUPPORTED_FORMATS,
                 min_size_mb=MODEL_CONFIG.MIN_FILE_SIZE_MB,
-                max_size_mb=MODEL_CONFIG.MAX_FILE_SIZE_GB * 1024  # Convert GB to MB
+                max_size_mb=MODEL_CONFIG.MAX_FILE_SIZE_GB * 1024
             )
 
     except Exception as e:
@@ -305,15 +269,15 @@ def format_file_size(size_bytes: int) -> str:
     return f"{size_bytes:.2f} TiB"
 
 def calculate_image_hash(file_path: str) -> str:
-    """Calculate MD5 hash of an image file using memory-efficient chunked reading."""
+    """Calculate MD5 hash of an image file."""
     hash_md5 = hashlib.md5()
     with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(65536), b""):  # 64KB chunks
+        for chunk in iter(lambda: f.read(65536), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
 def validate_dora_path(path: str) -> Tuple[bool, str]:
-    """Validate DoRA adapter path with comprehensive checks including directory containment."""
+    """Validate DoRA adapter path."""
     return _validate_file_path(
         path=path,
         file_type="DoRA",
@@ -323,91 +287,66 @@ def validate_dora_path(path: str) -> Tuple[bool, str]:
     )
 
 def detect_base_model_precision(model_path: str) -> torch.dtype:
-    """Detect and validate model precision (BF16 or pre-converted FP32 supported)."""
+    """Detect and validate model precision."""
     try:
-        # Check if model_path is a directory (diffusers format) or file (safetensors)
         if os.path.isdir(model_path):
-            # Diffusers directory format - check UNet config for precision
             logger.info(f"Detecting precision from diffusers directory: {model_path}")
 
-            # Check for UNet safetensors file
             unet_path = os.path.join(model_path, "unet", "diffusion_pytorch_model.safetensors")
             if not os.path.exists(unet_path):
-                # Try sharded format
                 unet_path = os.path.join(model_path, "unet", "diffusion_pytorch_model.fp32.safetensors")
 
             if os.path.exists(unet_path):
-                # Read safetensors header from UNet
                 with open(unet_path, 'rb') as f:
                     header_size = struct.unpack('<Q', f.read(8))[0]
                     header_data = json.loads(f.read(header_size).decode('utf-8'))
 
-                # Get dtype from first tensor
                 for key, value in header_data.items():
                     if key != '__metadata__' and isinstance(value, dict) and 'dtype' in value:
                         dtype_str = value['dtype']
                         detected_dtype = DTYPE_MAP.get(dtype_str)
 
                         if detected_dtype == torch.float32:
-                            logger.info(f"FP32 pre-converted model detected (lossless from BF16)")
+                            logger.info("FP32 model detected")
                             return detected_dtype
                         elif detected_dtype == torch.bfloat16:
-                            logger.info(f"BF16 model detected (canonical)")
+                            logger.info("BF16 model detected")
                             return detected_dtype
                         elif detected_dtype == torch.float16:
-                            raise ValueError(
-                                f"FP16 model detected. FP16 models are NOT supported. "
-                                f"Use BF16 model or FP32 pre-converted for lossless quality."
-                            )
+                            raise ValueError("FP16 model detected. FP16 models are NOT supported.")
                         break
 
-            # Fallback: assume FP32 if it's a known pre-converted directory
             if "FP32" in os.path.basename(model_path):
-                logger.info(f"FP32 pre-converted model assumed from directory name")
+                logger.info("FP32 model assumed from directory name")
                 return torch.float32
 
             raise ValueError(f"Could not detect precision from directory: {model_path}")
 
         else:
-            # Single file format - read safetensors header
             with open(model_path, 'rb') as f:
-                # Read header size (8 bytes)
                 header_size = struct.unpack('<Q', f.read(8))[0]
-                # Read header JSON (typically ~350KB vs 7.0GB full model)
                 header_data = json.loads(f.read(header_size).decode('utf-8'))
 
-            # Find first UNet tensor dtype from header metadata
             unet_tensors = {k: v for k, v in header_data.items()
                            if k != '__metadata__' and 'model.diffusion_model' in k}
 
             if unet_tensors:
-                # Get dtype from first UNet tensor
                 dtype_str = list(unet_tensors.values())[0]['dtype']
                 detected_dtype = DTYPE_MAP.get(dtype_str)
 
                 if detected_dtype is None:
-                    raise ValueError(
-                        f"Unsupported model precision: {dtype_str}. "
-                        f"Only BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) is supported. "
-                        f"FP16 models are NOT supported due to lossy quantization."
-                    )
+                    raise ValueError(f"Unsupported model precision: {dtype_str}")
 
                 if detected_dtype == torch.float16:
-                    raise ValueError(
-                        f"FP16 model detected. FP16 models are NOT supported. "
-                        f"Use BF16 model (NoobAI-XL-Vpred-v1.0.safetensors) for lossless quality "
-                        f"and cross-platform parity."
-                    )
+                    raise ValueError("FP16 model detected. FP16 models are NOT supported.")
 
-                logger.info(f"Model precision: {detected_dtype} (validated)")
+                logger.info(f"Model precision: {detected_dtype}")
                 return detected_dtype
 
-        # Default to BF16 (canonical format)
         logger.info("Using BF16 as default for SDXL model")
         return torch.bfloat16
 
     except ValueError:
-        # Re-raise validation errors
         raise
     except (IOError, OSError) as e:
         logger.error(f"Could not read model file: {e}")
