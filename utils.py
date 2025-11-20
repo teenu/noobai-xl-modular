@@ -189,6 +189,18 @@ def validate_model_path(path: str) -> Tuple[bool, str]:
         # Normalize and validate path
         normalized_path = os.path.normpath(os.path.abspath(path))
 
+        # Windows long path limitation check
+        if os.name == 'nt':  # Windows only
+            # Extended-length path support check
+            if len(normalized_path) > 260 and not normalized_path.startswith('\\\\?\\'):
+                return False, (
+                    f"Path too long for Windows ({len(normalized_path)} characters, limit 260).\n"
+                    f"Solutions:\n"
+                    f"1. Move model to shorter path (recommended)\n"
+                    f"2. Enable long paths: https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation\n"
+                    f"3. Use extended-length syntax: \\\\?\\{normalized_path}"
+                )
+
         if not os.path.exists(normalized_path):
             return False, f"Model not found: {normalized_path}"
 

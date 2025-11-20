@@ -36,9 +36,23 @@ torch.backends.cudnn.benchmark = False
 
 # Platform-specific determinism settings
 if torch.cuda.is_available():
+    # CRITICAL: Configure CuBLAS for deterministic operations (CUDA 10.2+)
+    # Required for cross-platform hash consistency
+    if 'CUBLAS_WORKSPACE_CONFIG' not in os.environ:
+        os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+        logger.debug("Set CUBLAS_WORKSPACE_CONFIG=:4096:8 for deterministic CUDA operations")
+    else:
+        existing_value = os.environ['CUBLAS_WORKSPACE_CONFIG']
+        if existing_value not in [':4096:8', ':16:8']:
+            logger.warning(
+                f"CUBLAS_WORKSPACE_CONFIG is set to '{existing_value}' "
+                f"(expected ':4096:8' or ':16:8'). Determinism may be affected."
+            )
+        else:
+            logger.debug(f"CUBLAS_WORKSPACE_CONFIG already set: {existing_value}")
     torch.cuda.manual_seed_all(0)  # Will be overridden by generator
 if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-    # MPS determinism (PyTorch 2.0+)
+    # macOS-specific: Enable MPS fallback for unsupported operations
     os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
 logger.info("Deterministic mode enabled for reproducible generation across platforms")
@@ -138,7 +152,7 @@ class NoobAIEngine:
                     logger.info("Loading FP32 pre-converted model (17.6× faster initialization)")
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         self.model_path,
-                        torch_dtype=torch.float32,
+                        dtype=torch.float32,
                     )
                     logger.info(f"Pipeline loaded: UNet/TextEncoders/VAE=FP32 (pre-converted)")
 
@@ -149,14 +163,14 @@ class NoobAIEngine:
                     # Load VAE separately in FP32
                     vae = AutoencoderKL.from_single_file(
                         self.model_path,
-                        torch_dtype=torch.float32,
+                        dtype=torch.float32,
                         use_safetensors=True,
                     )
 
                     # Load pipeline with inference precision, but override VAE
                     self.pipe = StableDiffusionXLPipeline.from_single_file(
                         self.model_path,
-                        torch_dtype=inference_dtype,
+                        dtype=inference_dtype,
                         vae=vae,
                         use_safetensors=True,
                     )
@@ -271,11 +285,17 @@ class NoobAIEngine:
 
             # Load DoRA adapter using the LoRA loading mechanism
             # The diffusers library will handle precision conversion automatically
-            self.pipe.load_lora_weights(
-                os.path.dirname(validated_path),
-                weight_name=os.path.basename(validated_path),
-                adapter_name="noobai_dora"
-            )
+            # Suppress false-positive warnings for UNet-only adapters
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="It seems like you are using a DoRA checkpoint")
+                warnings.filterwarnings("ignore", message="No LoRA keys associated to CLIPTextModel")
+                warnings.filterwarnings("ignore", message="No LoRA keys associated to CLIPTextModelWithProjection")
+                self.pipe.load_lora_weights(
+                    os.path.dirname(validated_path),
+                    weight_name=os.path.basename(validated_path),
+                    adapter_name="noobai_dora"
+                )
 
             # Set adapter scale
             self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])

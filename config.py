@@ -180,8 +180,13 @@ _search_directories = [
     os.path.join(_script_dir, "models"),               # Models subdirectory
     os.path.join(os.path.expanduser("~"), "Downloads"), # User Downloads
     os.path.join(os.path.expanduser("~"), "Models"),   # User Models directory
-    "/home/sachin/wshp/noob/noobai-xl-precision-analysis",  # FP32 model location
 ]
+
+# Optional: Allow custom model path via environment variable
+if 'NOOBAI_MODEL_PATH' in os.environ:
+    custom_path = os.environ['NOOBAI_MODEL_PATH']
+    if os.path.isdir(custom_path):
+        _search_directories.append(custom_path)
 
 # Search for both single files and directories
 # Prioritize FP32 directories for better performance on non-BF16 GPUs
