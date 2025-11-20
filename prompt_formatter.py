@@ -21,7 +21,7 @@ if PANDAS_AVAILABLE:
 # ============================================================================
 
 class IndexedPromptFormatterData:
-    """Enhanced prompt formatter with search indexing for better performance."""
+    """Prompt formatter with search indexing."""
 
     def __init__(self):
         self.character_data = {'danbooru': [], 'e621': []}

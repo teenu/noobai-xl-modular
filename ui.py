@@ -427,7 +427,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
 
         # DoRA refresh handler with comprehensive UI updates
         def refresh_dora_adapters():
-            """Enhanced refresh with conditional UI updates for both checkbox and dropdown."""
+            """Refresh DoRA adapters and update UI."""
             from ui_helpers import get_engine_safely
 
             # Get fresh adapter state
@@ -480,11 +480,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
 
         # Engine initialization
         def init_and_update(path, enable_dora_val, dora_path_val, dora_selection_val):
-            """Enhanced initialization with teardown feedback.
-
-            Generator function that yields UI updates for progressive feedback.
-            Always yields (never returns) to maintain consistent generator behavior.
-            """
+            """Initialize engine with UI feedback."""
             from ui_helpers import get_engine_safely, is_engine_ready
 
             # Provide teardown feedback if engine exists (thread-safe check)

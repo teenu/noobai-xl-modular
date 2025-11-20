@@ -74,7 +74,7 @@ class GenerationState(Enum):
     ERROR = "error"
 
 class StateManager:
-    """Thread-safe state management for generation with atomic operations."""
+    """State management for generation."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -107,7 +107,7 @@ class StateManager:
                 self._state = GenerationState.INTERRUPTED
 
     def try_start_generation(self) -> bool:
-        """Atomically attempt to start generation."""
+        """Attempt to start generation."""
         with self._lock:
             if self._state == GenerationState.IDLE:
                 self._state = GenerationState.GENERATING
@@ -115,7 +115,7 @@ class StateManager:
             return False
 
     def try_complete_generation(self) -> bool:
-        """Atomically attempt to mark generation as completed."""
+        """Attempt to mark generation as completed."""
         with self._lock:
             if self._state == GenerationState.GENERATING:
                 self._state = GenerationState.COMPLETED

@@ -191,26 +191,24 @@ class NoobAIEngine:
 
         except (IOError, OSError, RuntimeError, ValueError) as e:
             self.is_initialized = False
-            # Clean up partially initialized GPU resources
             if self.pipe is not None:
                 try:
                     if self._device in ["cuda", "mps"]:
                         self.clear_memory()
                 except Exception:
-                    pass  # Best effort cleanup, don't mask original error
+                    pass
                 finally:
                     self.pipe = None
             logger.error(f"Failed to initialize engine: {e}")
             raise
         except Exception as e:
             self.is_initialized = False
-            # Clean up partially initialized GPU resources
             if self.pipe is not None:
                 try:
                     if self._device in ["cuda", "mps"]:
                         self.clear_memory()
                 except Exception:
-                    pass  # Best effort cleanup, don't mask original error
+                    pass
                 finally:
                     self.pipe = None
             logger.error(f"Unexpected error during engine initialization: {e}")
@@ -1034,9 +1032,9 @@ class NoobAIEngine:
                 self.clear_memory()
 
     def teardown_engine(self) -> None:
-        """Comprehensive engine teardown with full resource cleanup."""
+        """Engine teardown with resource cleanup."""
         try:
-            logger.info("Performing comprehensive engine teardown")
+            logger.info("Performing engine teardown")
 
             # 1. Unload any DoRA adapters completely
             if self.pipe and self.dora_loaded:

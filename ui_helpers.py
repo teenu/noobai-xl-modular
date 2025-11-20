@@ -30,18 +30,17 @@ from engine import NoobAIEngine
 # GLOBAL ENGINE INSTANCE
 # ============================================================================
 
-# Global engine instance with thread-safe access
+# Global engine instance
 engine: Optional[NoobAIEngine] = None
 _engine_lock = Lock()
 
-# Thread-safe engine access functions
 def is_engine_ready() -> bool:
-    """Thread-safe check if engine is initialized and ready."""
+    """Check if engine is initialized and ready."""
     with _engine_lock:
         return engine is not None and engine.is_initialized
 
 def get_engine_safely() -> Optional[NoobAIEngine]:
-    """Thread-safe getter for engine instance."""
+    """Get engine instance safely."""
     with _engine_lock:
         return engine
 
@@ -257,61 +256,40 @@ def connect_search_events(
 # ============================================================================
 
 def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "") -> str:
-    """Initialize the NoobAI engine with comprehensive teardown of previous instance.
-
-    Thread-safe: Holds lock during entire check-teardown-initialization sequence
-    to prevent race conditions with concurrent generation or reinitialization.
-    """
+    """Initialize the engine."""
     global engine
 
-    # Hold lock for ENTIRE operation to prevent TOCTOU race conditions
-    # This ensures no generation can start during teardown
     with _engine_lock:
         try:
-            # Atomic check: prevent teardown during active generation
             if state_manager.is_generating():
                 return "❌ Cannot reinitialize: Image generation in progress. Please wait for completion or interrupt first."
 
-            # COMPREHENSIVE TEARDOWN of existing engine before fresh initialization
             if engine is not None:
-                logger.info("Performing comprehensive teardown of previous engine instance")
+                logger.info("Performing teardown of previous engine instance")
 
                 try:
-                    # Full engine teardown with all cleanup
                     engine.teardown_engine()
-                    # GPU synchronization handled by clear_memory() in teardown
-
-                    # Explicit deletion and nullification
                     del engine
                     engine = None
-
-                    # Additional global cleanup
                     resource_pool.clear()
-
-                    # Force garbage collection after teardown
                     gc.collect()
-
-                    logger.info("Previous engine instance completely torn down")
+                    logger.info("Previous engine instance torn down")
 
                 except Exception as e:
                     logger.error(f"Error during engine teardown: {e}")
-                    # Force reset even if teardown fails
                     engine = None
                     resource_pool.clear()
                     gc.collect()
 
-            # Validate model path
             is_valid, validated_model_path = validate_model_path(model_path)
             if not is_valid:
                 return f"❌ {validated_model_path}"
 
-            # Handle DoRA path if enabled
             dora_path_to_use = None
             dora_status = ""
 
             if enable_dora:
                 if dora_selection and dora_selection != "None":
-                    # Use selected adapter from dropdown
                     adapter_info = get_dora_adapter_by_name(dora_selection)
                     if adapter_info:
                         dora_path_to_use = adapter_info['path']
@@ -319,7 +297,6 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                     else:
                         dora_status = f"\n⚠️ DoRA: Selected adapter '{dora_selection}' not found"
                 elif dora_path.strip():
-                    # Validate provided DoRA path (manual override)
                     dora_valid, dora_result = validate_dora_path(dora_path)
                     if dora_valid:
                         dora_path_to_use = dora_result
@@ -328,7 +305,6 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                     else:
                         dora_status = f"\n⚠️ DoRA Error: {dora_result}"
                 else:
-                    # Auto-detect DoRA path
                     auto_dora_path = find_dora_path()
                     if auto_dora_path:
                         dora_path_to_use = auto_dora_path
@@ -449,18 +425,9 @@ def refresh_adapter_choices() -> gr.update:
     return gr.update(choices=choices, value=default_value)
 
 def auto_initialize(preferred_model_path: str = None) -> Tuple[str, str, bool, str, str]:
-    """Enhanced auto-initialize with smart DoRA defaults.
-
-    Args:
-        preferred_model_path: Optional model path to use. If provided, overrides auto-discovery.
-
-    Returns:
-        Tuple of (status, model_path, enable_dora, dora_path, default_adapter)
-    """
-    # Use provided path or auto-discover
+    """Auto-initialize with DoRA defaults."""
     model_path = preferred_model_path if preferred_model_path else find_model_path()
 
-    # Get smart DoRA state
     dora_ui_state = get_dora_ui_state()
     enable_dora = dora_ui_state['enable_dora_value']
     default_adapter = dora_ui_state['dropdown_value']
