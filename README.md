@@ -2,19 +2,22 @@
 
 Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimization, DoRA adapter support, and interactive prompt formatting.
 
-## ⚠️ Critical: BF16-Only for Lossless Quality
+## ⚠️ Critical: Supported Model Formats
 
-**ONLY BF16 Model Supported**: This implementation **exclusively** supports **`NoobAI-XL-Vpred-v1.0.safetensors`** (BF16) - the canonical, developer-intended highest quality model. **FP16 models are NOT supported** due to lossy quantization.
+**Supported Models**: This implementation supports two formats for lossless quality:
+1. **`NoobAI-XL-Vpred-v1.0.safetensors`** (BF16 single file, 7GB)
+2. **`NoobAI-XL-Vpred-v1.0-FP32/`** (FP32 directory format, 13GB)
 
-**Why BF16-Only?**
+**NOT Supported**: FP16 models are rejected due to lossy quantization.
+
+**Why These Formats?**
 - FP16 models were created via **lossy quantization** from BF16
 - Even with FP32 upcast, FP16 model weights are **already degraded**
-- Cannot recover lost precision from FP16 conversion
-- BF16-only ensures developer-intended quality on ALL platforms
+- BF16 and FP32 formats ensure developer-intended quality on ALL platforms
 
 **Automatic Precision Handling**:
-- **Platforms with BF16 support** (Apple Silicon, RTX 30xx/40xx): Native BF16 execution
-- **Platforms without BF16** (RTX 20xx, older GPUs): Automatic lossless upcast to FP32
+- **BF16 model** → Auto-upcast to FP32 on platforms without BF16 support
+- **FP32 directory** → Used directly (pre-converted for determinism)
 - **VAE**: Always runs in FP32 for lossless image decode
 - **Result**: Identical quality and output hashes across all platforms
 
@@ -104,22 +107,24 @@ Alternatively, use a shorter installation path like `C:\noobai\` instead of deep
 
 ### 3. Download Model File
 
-**REQUIRED - BF16 Model (ONLY Supported Format):**
-- `NoobAI-XL-Vpred-v1.0.safetensors` (7.0GB, BF16)
+**REQUIRED - Choose ONE of these formats:**
 
-**Why ONLY BF16?**
-- Developer's canonical, highest-quality version
-- FP16 models are **NOT supported** (lossy quantization from BF16)
-- Lossless quality on ALL platforms (auto-upcast to FP32 if needed)
-- Cross-platform parity guaranteed
+**Option 1: BF16 Single File (Recommended)**
+- `NoobAI-XL-Vpred-v1.0.safetensors` (7GB)
+- Auto-upcast to FP32 on platforms without BF16 support
 
-The application will automatically detect the model file in:
+**Option 2: FP32 Pre-converted Directory**
+- `NoobAI-XL-Vpred-v1.0-FP32/` (13GB directory)
+- Pre-converted for maximum determinism
+
+**NOT Supported:**
+- FP16 models are **rejected** (lossy quantization)
+
+The application will automatically detect the model in:
 - Repository root directory
 - `./models/` subdirectory
 - `~/Downloads/`
 - `~/Models/`
-
-**Important**: FP16 models will be **rejected** with an error. Only BF16 is supported.
 
 ### 4. Download Style Data (Required for GUI)
 
@@ -261,19 +266,24 @@ noobai-xl-modular/
 
 ## Model Precision Guide
 
-### Why ONLY BF16 Model is Supported
+### Supported Model Formats
 
-**BF16 Model (`NoobAI-XL-Vpred-v1.0.safetensors` - 7.0GB) - ONLY Supported:**
-- ✅ **Developer's canonical, highest-quality version**
-- ✅ **Lossless quality on ALL platforms** (BF16 native or FP32 upcast)
-- ✅ **Cross-platform parity** (identical outputs across all platforms)
-- ✅ **FP32 VAE** (prevents color banding and quantization artifacts)
+**BF16 Single File (`NoobAI-XL-Vpred-v1.0.safetensors` - 7GB):**
+- ✅ Developer's canonical version
+- ✅ Auto-upcast to FP32 on platforms without BF16 support
+- ✅ Cross-platform parity guaranteed
+- ✅ Smaller download size
 
-**FP16 Models - NOT Supported (Rejected with Error):**
+**FP32 Directory (`NoobAI-XL-Vpred-v1.0-FP32/` - 13GB):**
+- ✅ Pre-converted for maximum determinism
+- ✅ Direct FP32 weights (no upcast needed)
+- ✅ Validated precision on load
+- ✅ Cross-platform parity guaranteed
+
+**FP16 Models - NOT Supported:**
 - ❌ Created via **lossy quantization** from BF16
 - ❌ Model weights **already degraded** during FP16 conversion
 - ❌ Cannot recover lost precision (even with FP32 upcast)
-- ❌ Contradicts lossless quality requirement
 - ❌ Application will **refuse to load** FP16 models
 
 ### Platform Behavior
@@ -297,23 +307,24 @@ noobai-xl-modular/
 ### Precision Pipeline
 
 **Lossless Quality Enforcement:**
-1. BF16 model loaded and validated (FP16 rejected)
-2. Platforms with BF16 → native BF16 inference
-3. Platforms without BF16 → lossless FP32 upcast
-4. VAE always runs in FP32 (lossless decode)
-5. Result: Identical quality + identical hashes across platforms
+1. Model loaded (BF16 single file or FP32 directory)
+2. FP16 models rejected with error
+3. BF16 → Auto-upcast to FP32 on platforms without BF16 support
+4. FP32 directory → Precision validated on load
+5. VAE always runs in FP32 (lossless decode)
+6. Result: Identical quality + identical hashes across platforms
 
-**Why FP32 upcast (not FP16)?**
+**Why FP32 (not FP16)?**
 - BF16 → FP32 = **lossless** (mathematical subset)
 - BF16 → FP16 = **lossy** (incompatible formats)
-- FP32 guarantees numerical parity
+- FP32 guarantees numerical parity across all platforms
 
 ### Cross-Platform Reproducibility
 
 ✅ **Same seed → same image hash** (macOS/Windows/Linux)
 ✅ **Deterministic algorithms enforced**
 ✅ **CPU generator for consistent RNG**
-✅ **BF16-only policy** (no precision variance)
+✅ **Lossless precision handling** (BF16/FP32 only)
 ✅ **FP32 VAE** (no decode variance)
 
 ## Troubleshooting
@@ -348,7 +359,7 @@ This is a known Windows-specific issue where pip's cache can become corrupted du
 - Reduce resolution (try 512x768 or 768x1024)
 - Reduce inference steps (try 25 instead of 35)
 - Close other GPU applications
-- Ensure you're using the BF16 model (only supported format)
+- Consider using BF16 single file (7GB) instead of FP32 directory (13GB)
 
 ### DoRA adapters not loading
 - Verify `peft` is installed: `pip install peft>=0.18.0`
@@ -361,9 +372,9 @@ This is a known Windows-specific issue where pip's cache can become corrupted du
 - Ensure CSV files are not corrupted
 
 ### Slow generation on RTX 20xx GPU
-- Use FP16 model (`-fp16-all.safetensors`)
-- Engine automatically detects Turing architecture and uses FP16
-- CPU offloading is enabled automatically for optimal performance
+- BF16 model is auto-upcast to FP32 (slower but lossless)
+- CPU offloading is enabled automatically for <8GB VRAM
+- Reduce resolution or steps for faster generation
 
 ## Performance Benchmarks
 
