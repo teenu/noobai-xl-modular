@@ -254,9 +254,19 @@ class NoobAIEngine:
             self.dora_loaded = False
         except (RuntimeError, ValueError) as e:
             logger.error(f"Failed to load DoRA adapter (runtime/validation error): {e}")
+            # Attempt to unload partial state to prevent GPU memory leak
+            try:
+                self.pipe.unload_lora_weights()
+            except Exception:
+                pass
             self.dora_loaded = False
         except Exception as e:
             logger.error(f"Unexpected error loading DoRA adapter: {e}")
+            # Attempt to unload partial state to prevent GPU memory leak
+            try:
+                self.pipe.unload_lora_weights()
+            except Exception:
+                pass
             self.dora_loaded = False
         finally:
             # Ensure path is reset on failure (all error paths set dora_loaded=False)
@@ -315,20 +325,21 @@ class NoobAIEngine:
             logger.info(f"Switching DoRA adapter to: {validated_path}")
 
             # 1. Complete unload of current adapter
+            old_dora_path = self.dora_path
             if self.dora_loaded:
                 self.unload_dora_adapter()
                 # GPU synchronization now handled by clear_memory()
 
-            # 2. Update adapter path
+            # 2. Update adapter path and attempt to load
             self.dora_path = validated_path
-
-            # 3. Load new adapter with fresh state
             self._load_dora_adapter()
 
             if self.dora_loaded:
                 logger.info(f"Successfully switched to DoRA adapter: {os.path.basename(validated_path)}")
                 return True
             else:
+                # Restore old path on failure to maintain state consistency
+                self.dora_path = old_dora_path
                 logger.error("Failed to load new DoRA adapter")
                 return False
 
@@ -636,7 +647,11 @@ class NoobAIEngine:
                     # In CLI mode, re-raise to alert user immediately
                     if os.environ.get('NOOBAI_CLI_MODE') == '1':
                         raise
-                    # In GUI mode, continue generation despite callback failure
+                    # In GUI mode, try one more time with minimal description
+                    try:
+                        progress_callback(progress, f"Step {current_step}/{steps}")
+                    except Exception:
+                        pass  # Give up gracefully
 
             return callback_kwargs
 
@@ -750,7 +765,12 @@ class NoobAIEngine:
         if not manual_schedule:
             return f"Step {current_step}/{steps} (DoRA: OFF [no schedule], ETA: {eta:.1f}s)"
 
-        current_state = "ON" if manual_schedule[step_index] == 1 else "OFF"
+        # Bounds check to prevent IndexError if schedule is malformed
+        if step_index >= len(manual_schedule):
+            logger.warning(f"Manual schedule too short: index {step_index} >= length {len(manual_schedule)}")
+            current_state = "OFF"
+        else:
+            current_state = "ON" if manual_schedule[step_index] == 1 else "OFF"
 
         if next_step_index < steps:
             # Bounds check to prevent IndexError if schedule is malformed
@@ -1012,9 +1032,13 @@ class NoobAIEngine:
                     raise InvalidParameterError(
                         f"Seed must be integer, got {type(seed).__name__}"
                     )
-                if not (0 <= seed < 2**32):
+                if seed < 0:
                     raise InvalidParameterError(
-                        f"Seed must be in range [0, {2**32-1}], got {seed}"
+                        f"Seed must be non-negative, got {seed}"
+                    )
+                if seed >= 2**32:
+                    raise InvalidParameterError(
+                        f"Seed must be < {2**32}, got {seed}"
                     )
 
             # Generator is intentionally on CPU for cross-platform determinism

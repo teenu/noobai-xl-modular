@@ -135,7 +135,9 @@ class IndexedPromptFormatterData:
                         prefix = trigger_lower[:i]
                         if prefix not in self.char_index[source]:
                             self.char_index[source][prefix] = []
-                        self.char_index[source][prefix].append(item)
+                        # Limit index size to prevent excessive memory usage
+                        if len(self.char_index[source][prefix]) < 1000:
+                            self.char_index[source][prefix].append(item)
 
                 # Build artist indices
                 for item in self.artist_data[source]:
@@ -145,7 +147,9 @@ class IndexedPromptFormatterData:
                         prefix = trigger_lower[:i]
                         if prefix not in self.artist_index[source]:
                             self.artist_index[source][prefix] = []
-                        self.artist_index[source][prefix].append(item)
+                        # Limit index size to prevent excessive memory usage
+                        if len(self.artist_index[source][prefix]) < 1000:
+                            self.artist_index[source][prefix].append(item)
 
     def _calculate_search_score(self, query_lower: str, trigger_lower: str) -> int:
         """Calculate search relevance score."""

@@ -45,18 +45,22 @@ class PerformanceMonitor:
 
     def get_summary(self) -> Dict[str, Dict[str, float]]:
         """Get timing summary statistics."""
+        # Copy data under lock to prevent race conditions
         with self._lock:
-            summary = {}
-            for name, times in self.timings.items():
-                if times:
-                    summary[name] = {
-                        'count': len(times),
-                        'total': sum(times),
-                        'average': sum(times) / len(times),
-                        'min': min(times),
-                        'max': max(times)
-                    }
-            return summary
+            timings_copy = {name: list(times) for name, times in self.timings.items()}
+
+        # Process outside lock
+        summary = {}
+        for name, times in timings_copy.items():
+            if times:
+                summary[name] = {
+                    'count': len(times),
+                    'total': sum(times),
+                    'average': sum(times) / len(times),
+                    'min': min(times),
+                    'max': max(times)
+                }
+        return summary
 
 # Global performance monitor (disabled by default)
 perf_monitor = PerformanceMonitor(enabled=False)

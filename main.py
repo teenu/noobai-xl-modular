@@ -39,15 +39,27 @@ from cli import cli_list_adapters, cli_generate, parse_args
 
 def cleanup_resources():
     """Clean up resources on application exit."""
+    errors = []
+
+    # Attempt engine cleanup
     try:
-        # Get current engine instance safely (thread-safe and up-to-date)
         current_engine = get_engine_safely()
         if current_engine:
             current_engine.clear_memory()
-        resource_pool.clear()
-        logger.info("Resources cleaned up successfully")
     except Exception as e:
-        logger.error(f"Error during cleanup: {e}")
+        errors.append(f"Engine cleanup: {e}")
+
+    # Attempt resource pool cleanup
+    try:
+        resource_pool.clear()
+    except Exception as e:
+        errors.append(f"Resource pool cleanup: {e}")
+
+    # Log results
+    if errors:
+        logger.error(f"Cleanup errors: {'; '.join(errors)}")
+    else:
+        logger.info("Resources cleaned up successfully")
 
 # Register cleanup
 atexit.register(cleanup_resources)

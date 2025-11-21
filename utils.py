@@ -301,11 +301,15 @@ def format_file_size(size_bytes: int) -> str:
 
 def calculate_image_hash(file_path: str) -> str:
     """Calculate MD5 hash of an image file."""
-    hash_md5 = hashlib.md5()
-    with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+    try:
+        hash_md5 = hashlib.md5()
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    except (IOError, OSError) as e:
+        logger.error(f"Failed to calculate hash for {file_path}: {e}")
+        return "ERROR"
 
 def validate_dora_path(path: str) -> Tuple[bool, str]:
     """Validate DoRA adapter path."""

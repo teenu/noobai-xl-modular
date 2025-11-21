@@ -139,6 +139,7 @@ def cli_generate(args):
         prompt = (args.prompt or "").strip()
         if not prompt:
             print("❌ Please provide a prompt")
+            engine.teardown_engine()
             return 1
 
         # Handle manual DoRA schedule if provided
