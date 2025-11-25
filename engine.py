@@ -9,6 +9,7 @@ import os
 import time
 import random
 import gc
+import threading
 import torch
 from diffusers import StableDiffusionXLPipeline, EulerDiscreteScheduler
 from PIL import Image
@@ -67,6 +68,7 @@ class NoobAIEngine:
         self.pipe = None
         self.is_initialized = False
         self._device = None
+        self._toggle_lock = threading.Lock()  # Lock for DoRA toggle operations
         self._initialize()
 
     def _initialize(self):
@@ -259,6 +261,8 @@ class NoobAIEngine:
                 self.pipe.unload_lora_weights()
             except Exception:
                 pass
+            # Force memory cleanup after failed load
+            self.clear_memory()
             self.dora_loaded = False
         except Exception as e:
             logger.error(f"Unexpected error loading DoRA adapter: {e}")
@@ -267,6 +271,8 @@ class NoobAIEngine:
                 self.pipe.unload_lora_weights()
             except Exception:
                 pass
+            # Force memory cleanup after failed load
+            self.clear_memory()
             self.dora_loaded = False
         finally:
             # Ensure path is reset on failure (all error paths set dora_loaded=False)
@@ -640,7 +646,7 @@ class NoobAIEngine:
                     progress_callback(progress, desc)
                 except Exception as e:
                     # Log with full traceback for debugging
-                    logger.warning(
+                    logger.error(
                         f"Progress callback error at step {current_step}: {e}",
                         exc_info=True
                     )
@@ -650,8 +656,9 @@ class NoobAIEngine:
                     # In GUI mode, try one more time with minimal description
                     try:
                         progress_callback(progress, f"Step {current_step}/{steps}")
-                    except Exception:
-                        pass  # Give up gracefully
+                    except Exception as retry_error:
+                        # Log retry failure even in GUI mode for debugging
+                        logger.error(f"Progress callback retry also failed: {retry_error}")
 
             return callback_kwargs
 
@@ -712,14 +719,15 @@ class NoobAIEngine:
         """Handle standard toggle mode progress description with device synchronization."""
         if next_step_index < steps:
             current_state = "ON" if step_index % 2 == 0 else "OFF"
-            # Synchronize device before changing adapter weights to prevent race conditions
-            self._synchronize_device()
-            if next_step_index % 2 == 0:  # Next is even - turn ON
-                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
-                return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
-            else:  # Next is odd - turn OFF
-                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
-                return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: OFF, ETA: {eta:.1f}s)"
+            # Use lock to prevent race conditions during adapter weight changes
+            with self._toggle_lock:
+                self._synchronize_device()
+                if next_step_index % 2 == 0:  # Next is even - turn ON
+                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                    return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
+                else:  # Next is odd - turn OFF
+                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+                    return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: OFF, ETA: {eta:.1f}s)"
         else:
             current_state = "ON" if step_index % 2 == 0 else "OFF"
             return f"Step {current_step}/{steps} (DoRA: {current_state}, final, ETA: {eta:.1f}s)"
@@ -729,21 +737,22 @@ class NoobAIEngine:
     ) -> str:
         """Handle smart toggle mode progress description with device synchronization."""
         if next_step_index < steps:
-            # Synchronize device before changing adapter weights to prevent race conditions
-            self._synchronize_device()
-            if next_step_index <= 19:
-                # Alternating phase (indices 0-19)
-                current_state = "ON" if step_index % 2 == 0 else "OFF"
-                if next_step_index % 2 == 0:  # Next is even - turn ON
+            # Use lock to prevent race conditions during adapter weight changes
+            with self._toggle_lock:
+                self._synchronize_device()
+                if next_step_index <= 19:
+                    # Alternating phase (indices 0-19)
+                    current_state = "ON" if step_index % 2 == 0 else "OFF"
+                    if next_step_index % 2 == 0:  # Next is even - turn ON
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                        return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
+                    else:  # Next is odd - turn OFF
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+                        return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: OFF, ETA: {eta:.1f}s)"
+                else:
+                    # Always ON phase (index 20+)
                     self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
-                    return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
-                else:  # Next is odd - turn OFF
-                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
-                    return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: OFF, ETA: {eta:.1f}s)"
-            else:
-                # Always ON phase (index 20+)
-                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
-                return f"Step {current_step}/{steps} (DoRA: ON [smart-locked], next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
+                    return f"Step {current_step}/{steps} (DoRA: ON [smart-locked], next[{next_step_index}]: ON, ETA: {eta:.1f}s)"
         else:
             # Final step
             if step_index <= 19:
@@ -773,22 +782,22 @@ class NoobAIEngine:
             current_state = "ON" if manual_schedule[step_index] == 1 else "OFF"
 
         if next_step_index < steps:
-            # Bounds check to prevent IndexError if schedule is malformed
-            if next_step_index >= len(manual_schedule):
-                logger.warning(f"Manual schedule too short: index {next_step_index} >= length {len(manual_schedule)}, treating as OFF")
-                next_state = "OFF"
-                # Synchronize before changing weights
-                self._synchronize_device()
-                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
-            else:
-                next_state = "ON" if manual_schedule[next_step_index] == 1 else "OFF"
-                # Synchronize device before changing adapter weights
-                self._synchronize_device()
-                # Set adapter for next step
-                if manual_schedule[next_step_index] == 1:
-                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
-                else:
+            # Use lock to prevent race conditions during adapter weight changes
+            with self._toggle_lock:
+                # Bounds check to prevent IndexError if schedule is malformed
+                if next_step_index >= len(manual_schedule):
+                    logger.warning(f"Manual schedule too short: index {next_step_index} >= length {len(manual_schedule)}, treating as OFF")
+                    next_state = "OFF"
+                    self._synchronize_device()
                     self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+                else:
+                    next_state = "ON" if manual_schedule[next_step_index] == 1 else "OFF"
+                    self._synchronize_device()
+                    # Set adapter for next step
+                    if manual_schedule[next_step_index] == 1:
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                    else:
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
             return f"Step {current_step}/{steps} (DoRA: {current_state}, next[{next_step_index}]: {next_state}, ETA: {eta:.1f}s)"
         else:
             return f"Step {current_step}/{steps} (DoRA: {current_state}, final, ETA: {eta:.1f}s)"
@@ -1019,6 +1028,16 @@ class NoobAIEngine:
         if dora_start_step is not None:
             self.set_dora_start_step(dora_start_step)
 
+        # Validate steps parameter
+        if not isinstance(steps, int):
+            raise InvalidParameterError(
+                f"Steps must be integer, got {type(steps).__name__}"
+            )
+        if steps <= 0:
+            raise InvalidParameterError(
+                f"Steps must be positive, got {steps}"
+            )
+
         with perf_monitor.time_section("image_generation"):
             # Build generation info
             info_parts = self._build_generation_info(steps, cfg_scale, width, height)
@@ -1038,7 +1057,7 @@ class NoobAIEngine:
                     )
                 if seed >= 2**32:
                     raise InvalidParameterError(
-                        f"Seed must be < {2**32}, got {seed}"
+                        f"Seed must be < 2^32 ({2**32}), got {seed}"
                     )
 
             # Generator is intentionally on CPU for cross-platform determinism

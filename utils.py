@@ -52,8 +52,10 @@ def _is_path_in_allowed_directory(path: str, allowed_dirs: Sequence[str]) -> Tup
     except Exception as e:
         return False, f"Cannot resolve path: {e}"
 
+    # Reject path traversal attempts immediately
     if '..' in path or path != os.path.normpath(path):
-        logger.warning(f"Path traversal attempt detected: {path}")
+        logger.warning(f"Path traversal attempt detected and rejected: {path}")
+        return False, "Path traversal attempt rejected for security"
 
     for allowed_dir in allowed_dirs:
         try:
@@ -496,6 +498,10 @@ def parse_manual_dora_schedule(schedule_input: Optional[str], num_steps: int) ->
     """
     if not schedule_input or not schedule_input.strip():
         return None, None
+
+    # Validate input length to prevent memory exhaustion
+    if len(schedule_input) > 10000:
+        return None, "Manual DoRA schedule too long (max 10000 characters) - DoRA will be OFF for all steps"
 
     try:
         # Split by comma and strip whitespace

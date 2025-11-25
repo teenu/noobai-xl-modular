@@ -8,6 +8,7 @@ both GUI and CLI interfaces.
 
 import os
 import sys
+import signal
 
 # ============================================================================
 # DETERMINISM SETUP - CRITICAL: Must be set before ANY PyTorch imports
@@ -63,6 +64,21 @@ def cleanup_resources():
 
 # Register cleanup
 atexit.register(cleanup_resources)
+
+# ============================================================================
+# SIGNAL HANDLERS
+# ============================================================================
+
+def signal_handler(signum, frame):
+    """Handle interrupt signals (SIGINT, SIGTERM) for clean shutdown."""
+    sig_name = signal.Signals(signum).name
+    logger.info(f"Received {sig_name}, cleaning up...")
+    cleanup_resources()
+    sys.exit(0)
+
+# Register signal handlers for clean shutdown
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 # ============================================================================
 # MAIN
