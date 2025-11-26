@@ -11,7 +11,7 @@ import random
 import gc
 import threading
 import torch
-from diffusers import StableDiffusionXLPipeline, EulerDiscreteScheduler
+from diffusers import StableDiffusionXLPipeline, EulerDiscreteScheduler, AutoencoderKL
 from PIL import Image
 from PIL import PngImagePlugin
 from typing import Optional, Tuple, Dict, Any, Callable, List
@@ -46,6 +46,7 @@ if torch.cuda.is_available():
             f"(expected ':4096:8' or ':16:8'). Determinism may be affected."
         )
     torch.cuda.manual_seed_all(0)
+
 if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
     os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
@@ -117,18 +118,33 @@ class NoobAIEngine:
                 else:
                     inference_dtype = torch.float32
 
-                from diffusers import AutoencoderKL
-
                 # Load FP32 pre-converted model or BF16 model with precision selection
                 if base_precision == torch.float32 and is_directory:
+                    # CRITICAL FIX: Explicitly load VAE as FP32 for lossless decode
+                    # This ensures consistent decode quality across all model formats
+                    vae_path = os.path.join(self.model_path, "vae")
+                    if os.path.isdir(vae_path):
+                        vae = AutoencoderKL.from_pretrained(
+                            vae_path,
+                            torch_dtype=torch.float32,
+                        )
+                        logger.info("VAE loaded as FP32 from directory for lossless decode")
+                    else:
+                        # Fallback: load from parent and hope for the best
+                        logger.warning("VAE subdirectory not found, loading from parent directory")
+                        vae = None
+
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         self.model_path,
-                        # NOTE: dtype parameter is ignored by from_pretrained for directories
+                        vae=vae,
+                        # NOTE: torch_dtype parameter may be ignored for some components
+                        # but we explicitly set VAE above to guarantee FP32 decode
                     )
 
                     # Validate actual loaded precision matches expected FP32
                     actual_unet_dtype = next(self.pipe.unet.parameters()).dtype
                     actual_te_dtype = next(self.pipe.text_encoder.parameters()).dtype
+                    actual_vae_dtype = next(self.pipe.vae.parameters()).dtype
 
                     if actual_unet_dtype != torch.float32:
                         raise ValueError(
@@ -140,20 +156,29 @@ class NoobAIEngine:
                             f"Expected FP32 model but TextEncoder loaded with {actual_te_dtype}. "
                             f"Directory may contain wrong precision weights."
                         )
+                    if actual_vae_dtype != torch.float32:
+                        raise ValueError(
+                            f"Expected FP32 VAE but loaded with {actual_vae_dtype}. "
+                            f"This could cause decode quality issues."
+                        )
+
+                    logger.info("FP32 directory model loaded with all components validated as FP32")
 
                 else:
+                    # Single file model (BF16) - load VAE explicitly as FP32
                     vae = AutoencoderKL.from_single_file(
                         self.model_path,
-                        dtype=torch.float32,
+                        torch_dtype=torch.float32,
                         use_safetensors=True,
                     )
 
                     self.pipe = StableDiffusionXLPipeline.from_single_file(
                         self.model_path,
-                        dtype=inference_dtype,
+                        torch_dtype=inference_dtype,
                         vae=vae,
                         use_safetensors=True,
                     )
+                    logger.info(f"Single file model loaded with {inference_dtype} inference, FP32 VAE")
 
                 # Configure scheduler
                 self.pipe.scheduler = EulerDiscreteScheduler.from_config(
@@ -398,6 +423,14 @@ class NoobAIEngine:
             Actual start step value used (after clamping if necessary)
         """
         try:
+            # Coerce to int first to handle floats from UI
+            if not isinstance(start_step, int):
+                try:
+                    start_step = int(start_step)
+                except (TypeError, ValueError):
+                    logger.warning(f"Invalid DoRA start step type: {type(start_step)}, using default")
+                    start_step = MODEL_CONFIG.DEFAULT_DORA_START_STEP
+
             original_start_step = start_step
             # Validate start step is in bounds and clamp if necessary
             if not (MODEL_CONFIG.MIN_DORA_START_STEP <= start_step <= MODEL_CONFIG.MAX_DORA_START_STEP):
@@ -540,7 +573,7 @@ class NoobAIEngine:
         if dora_toggle_mode:
             if dora_toggle_mode == "manual":
                 # Manual mode: Set based on schedule index 0 (default OFF)
-                if manual_schedule and manual_schedule[0] == 1:
+                if manual_schedule and len(manual_schedule) > 0 and manual_schedule[0] == 1:
                     self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
                 else:
                     self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
@@ -823,6 +856,8 @@ class NoobAIEngine:
                     dora_info += ", toggle: ON,OFF throughout"
                 elif dora_toggle_mode == "smart":
                     dora_info += ", smart toggle: ON,OFF to step 20, then ON"
+                elif dora_toggle_mode == "manual":
+                    dora_info += ", manual toggle schedule"
                 elif self.dora_start_step > 1:
                     dora_info += f", starts at step {self.dora_start_step}"
                 dora_info += ")"
@@ -969,7 +1004,7 @@ class NoobAIEngine:
             if os.path.exists(output_path):
                 try:
                     os.remove(output_path)
-                except:
+                except Exception:
                     pass
             raise IOError(f"Failed to save image: {e}")
 
@@ -1028,11 +1063,14 @@ class NoobAIEngine:
         if dora_start_step is not None:
             self.set_dora_start_step(dora_start_step)
 
-        # Validate steps parameter
+        # Validate and coerce steps parameter
         if not isinstance(steps, int):
-            raise InvalidParameterError(
-                f"Steps must be integer, got {type(steps).__name__}"
-            )
+            try:
+                steps = int(steps)
+            except (TypeError, ValueError):
+                raise InvalidParameterError(
+                    f"Steps must be integer, got {type(steps).__name__}"
+                )
         if steps <= 0:
             raise InvalidParameterError(
                 f"Steps must be positive, got {steps}"
@@ -1046,11 +1084,14 @@ class NoobAIEngine:
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
             else:
-                # Validate seed parameter (for CLI mode safety)
+                # Coerce seed to int if needed
                 if not isinstance(seed, int):
-                    raise InvalidParameterError(
-                        f"Seed must be integer, got {type(seed).__name__}"
-                    )
+                    try:
+                        seed = int(seed)
+                    except (TypeError, ValueError):
+                        raise InvalidParameterError(
+                            f"Seed must be integer, got {type(seed).__name__}"
+                        )
                 if seed < 0:
                     raise InvalidParameterError(
                         f"Seed must be non-negative, got {seed}"

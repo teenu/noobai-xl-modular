@@ -22,9 +22,11 @@ try:
 except ImportError:
     SAFETENSORS_AVAILABLE = False
 
+# DTYPE_MAP includes F16 for proper rejection message when FP16 models are detected
 DTYPE_MAP = {
     'F32': torch.float32,
     'BF16': torch.bfloat16,
+    'F16': torch.float16,  # Added for proper FP16 rejection message
     'FLOAT': torch.float32,
 }
 

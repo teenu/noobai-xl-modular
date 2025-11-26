@@ -11,7 +11,7 @@ import gc
 import time
 import gradio as gr
 from threading import Lock
-from typing import Tuple, Optional, List, Dict, Any
+from typing import Tuple, Optional, List, Dict, Any, Union
 from config import (
     logger, MODEL_CONFIG, GEN_CONFIG, SEARCH_CONFIG, OPTIMAL_SETTINGS,
     OUTPUT_DIR, MODEL_SEARCH_PATHS, InvalidParameterError, GenerationInterruptedError
@@ -104,17 +104,84 @@ def parse_resolution_string(res_str: str) -> Tuple[int, int]:
     except Exception:
         return OPTIMAL_SETTINGS['width'], OPTIMAL_SETTINGS['height']
 
-def _coerce_int(value, label: str) -> int:
-    """Coerce value to integer with descriptive error message."""
+def _coerce_int(value: Union[int, float, str, Any], label: str) -> int:
+    """Coerce value to integer with descriptive error message.
+    
+    Handles floats from Gradio sliders, strings from textboxes, and numpy types.
+    """
     try:
+        # Handle None
+        if value is None:
+            raise InvalidParameterError(f"{label} cannot be None")
+        
+        # Handle numpy types
+        if hasattr(value, 'item'):
+            value = value.item()
+        
+        # Convert to int (handles float, str, etc.)
         return int(value)
-    except (TypeError, ValueError):
-        raise InvalidParameterError(f"{label} must be an integer value")
+    except (TypeError, ValueError) as e:
+        raise InvalidParameterError(f"{label} must be an integer value, got {type(value).__name__}: {e}")
 
-def validate_parameters(w: int, h: int, s: int, c: float, r: float, a: Optional[float] = None, ds: Optional[int] = None) -> Optional[str]:
-    """Validate generation parameters."""
+def _coerce_float(value: Union[int, float, str, Any], label: str) -> float:
+    """Coerce value to float with descriptive error message."""
+    try:
+        # Handle None
+        if value is None:
+            raise InvalidParameterError(f"{label} cannot be None")
+        
+        # Handle numpy types
+        if hasattr(value, 'item'):
+            value = value.item()
+        
+        return float(value)
+    except (TypeError, ValueError) as e:
+        raise InvalidParameterError(f"{label} must be a numeric value, got {type(value).__name__}: {e}")
+
+def validate_parameters(
+    w: Union[int, float], 
+    h: Union[int, float], 
+    s: Union[int, float], 
+    c: Union[int, float], 
+    r: Union[int, float], 
+    a: Optional[Union[int, float]] = None, 
+    ds: Optional[Union[int, float]] = None
+) -> Optional[str]:
+    """Validate generation parameters with type coercion."""
     errors = []
 
+    # Coerce types first
+    try:
+        w = _coerce_int(w, "Width")
+    except InvalidParameterError as e:
+        errors.append(str(e))
+        w = OPTIMAL_SETTINGS['width']  # Use default for further validation
+    
+    try:
+        h = _coerce_int(h, "Height")
+    except InvalidParameterError as e:
+        errors.append(str(e))
+        h = OPTIMAL_SETTINGS['height']
+    
+    try:
+        s = _coerce_int(s, "Steps")
+    except InvalidParameterError as e:
+        errors.append(str(e))
+        s = OPTIMAL_SETTINGS['steps']
+    
+    try:
+        c = _coerce_float(c, "CFG scale")
+    except InvalidParameterError as e:
+        errors.append(str(e))
+        c = OPTIMAL_SETTINGS['cfg_scale']
+    
+    try:
+        r = _coerce_float(r, "Rescale CFG")
+    except InvalidParameterError as e:
+        errors.append(str(e))
+        r = OPTIMAL_SETTINGS['rescale_cfg']
+
+    # Validate ranges
     if not (GEN_CONFIG.MIN_RESOLUTION <= w <= GEN_CONFIG.MAX_RESOLUTION):
         errors.append(f"Width must be {GEN_CONFIG.MIN_RESOLUTION}-{GEN_CONFIG.MAX_RESOLUTION}")
     elif w % 8 != 0:
@@ -134,16 +201,25 @@ def validate_parameters(w: int, h: int, s: int, c: float, r: float, a: Optional[
     if not (GEN_CONFIG.MIN_RESCALE_CFG <= r <= GEN_CONFIG.MAX_RESCALE_CFG):
         errors.append(f"Rescale must be {GEN_CONFIG.MIN_RESCALE_CFG}-{GEN_CONFIG.MAX_RESCALE_CFG}")
 
-    if a is not None and not (MODEL_CONFIG.MIN_ADAPTER_STRENGTH <= a <= MODEL_CONFIG.MAX_ADAPTER_STRENGTH):
-        errors.append(f"Adapter strength must be {MODEL_CONFIG.MIN_ADAPTER_STRENGTH}-{MODEL_CONFIG.MAX_ADAPTER_STRENGTH}")
+    # Validate optional adapter strength
+    if a is not None:
+        try:
+            a = _coerce_float(a, "Adapter strength")
+            if not (MODEL_CONFIG.MIN_ADAPTER_STRENGTH <= a <= MODEL_CONFIG.MAX_ADAPTER_STRENGTH):
+                errors.append(f"Adapter strength must be {MODEL_CONFIG.MIN_ADAPTER_STRENGTH}-{MODEL_CONFIG.MAX_ADAPTER_STRENGTH}")
+        except InvalidParameterError as e:
+            errors.append(str(e))
 
+    # Validate optional DoRA start step
     if ds is not None:
-        if not isinstance(ds, int):
-            errors.append("DoRA start step must be an integer")
-        elif not (MODEL_CONFIG.MIN_DORA_START_STEP <= ds <= MODEL_CONFIG.MAX_DORA_START_STEP):
-            errors.append(f"DoRA start step must be {MODEL_CONFIG.MIN_DORA_START_STEP}-{MODEL_CONFIG.MAX_DORA_START_STEP}")
-        elif ds > s:
-            errors.append(f"DoRA start step ({ds}) cannot be greater than total steps ({s})")
+        try:
+            ds = _coerce_int(ds, "DoRA start step")
+            if not (MODEL_CONFIG.MIN_DORA_START_STEP <= ds <= MODEL_CONFIG.MAX_DORA_START_STEP):
+                errors.append(f"DoRA start step must be {MODEL_CONFIG.MIN_DORA_START_STEP}-{MODEL_CONFIG.MAX_DORA_START_STEP}")
+            elif ds > s:
+                errors.append(f"DoRA start step ({ds}) cannot be greater than total steps ({s})")
+        except InvalidParameterError as e:
+            errors.append(str(e))
 
     return "❌ " + "\n❌ ".join(errors) if errors else None
 
@@ -166,12 +242,20 @@ def create_clear_handler(component_type: str):
 def create_status_updater(param_type: str):
     """Create a status update function for parameters."""
     def update_cfg_status(value):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return '<div style="color: red;">❌ Invalid value</div>'
         if 3.5 <= value <= 5.5:
             return '<div style="color: green;">✅ Optimal range (3.5-5.5)</div>'
         else:
             return '<div style="color: orange;">⚠️ Outside optimal range (3.5-5.5)</div>'
 
     def update_steps_status(value):
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return '<div style="color: red;">❌ Invalid value</div>'
         if 32 <= value <= 40:
             return '<div style="color: green;">✅ Optimal range (32-40)</div>'
         elif value >= 10:
@@ -180,12 +264,20 @@ def create_status_updater(param_type: str):
             return '<div style="color: red;">❌ Too low for quality results</div>'
 
     def update_rescale_status(value):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return '<div style="color: red;">❌ Invalid value</div>'
         if abs(value - 0.7) < 0.1:
             return '<div style="color: green;">✅ Optimal (around 0.7)</div>'
         else:
             return '<div style="color: blue;">📊 Valid</div>'
 
     def update_adapter_status(value):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return '<div style="color: red;">❌ Invalid value</div>'
         if 0.8 <= value <= 1.2:
             return '<div style="color: green;">✅ Optimal range (0.8-1.2)</div>'
         elif value == 0.0:
@@ -196,6 +288,10 @@ def create_status_updater(param_type: str):
             return '<div style="color: blue;">📊 Valid</div>'
 
     def update_dora_start_step_status(value):
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return '<div style="color: red;">❌ Invalid value</div>'
         if value == 1:
             return '<div style="color: green;">✅ Start at step 1</div>'
         elif value <= 5:
@@ -477,8 +573,12 @@ def generate_image_with_progress(
         else:
             width, height = parse_resolution_string(resolution)
 
+        # Coerce all numeric parameters
         steps = _coerce_int(steps, "Steps")
         dora_start_step = _coerce_int(dora_start_step, "DoRA start step")
+        cfg_scale = _coerce_float(cfg_scale, "CFG scale")
+        rescale_cfg = _coerce_float(rescale_cfg, "Rescale CFG")
+        adapter_strength = _coerce_float(adapter_strength, "Adapter strength")
 
         # Validate parameters
         param_error = validate_parameters(width, height, steps, cfg_scale, rescale_cfg, adapter_strength, dora_start_step)
@@ -538,6 +638,10 @@ def generate_image_with_progress(
     except GenerationInterruptedError:
         state_manager.set_state(GenerationState.INTERRUPTED)
         return None, "⚠️ Generation interrupted", seed
+    except InvalidParameterError as e:
+        state_manager.set_state(GenerationState.ERROR)
+        logger.error(f"Generation failed (invalid parameter): {e}")
+        return None, f"❌ {str(e)}", seed
     except (IOError, OSError) as e:
         state_manager.set_state(GenerationState.ERROR)
         error_msg = get_user_friendly_error(e)

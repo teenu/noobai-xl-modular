@@ -324,7 +324,11 @@ def validate_dora_path(path: str) -> Tuple[bool, str]:
     )
 
 def detect_base_model_precision(model_path: str) -> torch.dtype:
-    """Detect and validate model precision."""
+    """Detect and validate model precision.
+    
+    Returns the detected dtype or raises ValueError for unsupported/invalid models.
+    FP16 models are explicitly rejected with a clear error message.
+    """
     try:
         if os.path.isdir(model_path):
             logger.info(f"Detecting precision from diffusers directory: {model_path}")
@@ -343,14 +347,20 @@ def detect_base_model_precision(model_path: str) -> torch.dtype:
                         dtype_str = value['dtype']
                         detected_dtype = DTYPE_MAP.get(dtype_str)
 
-                        if detected_dtype == torch.float32:
+                        # Check for FP16 first with clear rejection message
+                        if detected_dtype == torch.float16:
+                            raise ValueError(
+                                "FP16 model detected. FP16 models are NOT supported due to lossy quantization. "
+                                "Please use the BF16 (.safetensors) or FP32 (directory) model format."
+                            )
+                        elif detected_dtype == torch.float32:
                             logger.info("FP32 model detected")
                             return detected_dtype
                         elif detected_dtype == torch.bfloat16:
                             logger.info("BF16 model detected")
                             return detected_dtype
-                        elif detected_dtype == torch.float16:
-                            raise ValueError("FP16 model detected. FP16 models are NOT supported.")
+                        elif detected_dtype is None:
+                            raise ValueError(f"Unsupported model precision: {dtype_str}")
                         break
 
             if "FP32" in os.path.basename(model_path):
@@ -374,8 +384,12 @@ def detect_base_model_precision(model_path: str) -> torch.dtype:
                 if detected_dtype is None:
                     raise ValueError(f"Unsupported model precision: {dtype_str}")
 
+                # Check for FP16 with clear rejection message
                 if detected_dtype == torch.float16:
-                    raise ValueError("FP16 model detected. FP16 models are NOT supported.")
+                    raise ValueError(
+                        "FP16 model detected. FP16 models are NOT supported due to lossy quantization. "
+                        "Please use the BF16 (.safetensors) or FP32 (directory) model format."
+                    )
 
                 logger.info(f"Model precision: {detected_dtype}")
                 return detected_dtype
@@ -503,6 +517,10 @@ def parse_manual_dora_schedule(schedule_input: Optional[str], num_steps: int) ->
     if len(schedule_input) > 10000:
         return None, "Manual DoRA schedule too long (max 10000 characters) - DoRA will be OFF for all steps"
 
+    # Validate num_steps
+    if num_steps <= 0:
+        return None, "Invalid number of steps"
+
     try:
         # Split by comma and strip whitespace
         parts = [p.strip() for p in schedule_input.split(',')]
@@ -559,6 +577,8 @@ def generate_standard_schedule(num_steps: int) -> List[int]:
     Returns:
         List of 0/1 values (even indices=1/ON, odd indices=0/OFF)
     """
+    if num_steps <= 0:
+        return []
     return [1 if i % 2 == 0 else 0 for i in range(num_steps)]
 
 def generate_smart_schedule(num_steps: int) -> List[int]:
@@ -571,6 +591,8 @@ def generate_smart_schedule(num_steps: int) -> List[int]:
     Returns:
         List of 0/1 values
     """
+    if num_steps <= 0:
+        return []
     schedule = []
     for i in range(num_steps):
         if i <= 19:
