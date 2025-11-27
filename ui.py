@@ -553,7 +553,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                 cell_class = "dora-cell on" if state == 1 else "dora-cell"
                 cells_html.append(f'<div class="{cell_class}" data-index="{i}"></div>')
 
-            # Unique ID for this grid instance (uuid imported at module level)
+            # Unique ID for this grid instance
             grid_id = f"dora-grid-{steps_int}-{uuid.uuid4().hex[:8]}"
 
             grid_html = f'''
