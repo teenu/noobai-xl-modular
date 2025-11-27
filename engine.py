@@ -69,6 +69,7 @@ class NoobAIEngine:
         self.pipe = None
         self.is_initialized = False
         self._device = None
+        self._cpu_offload_enabled = False  # Initialize here to ensure it always exists
         self._toggle_lock = threading.Lock()  # Lock for DoRA toggle operations
         self._initialize()
 
@@ -190,7 +191,6 @@ class NoobAIEngine:
                 )
 
                 # Move to device and configure memory management
-                self._cpu_offload_enabled = False  # Track offload state
                 if self._device == "cuda":
                     try:
                         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
@@ -1161,7 +1161,12 @@ class NoobAIEngine:
                 self.clear_memory()
 
     def teardown_engine(self) -> None:
-        """Engine teardown with resource cleanup."""
+        """Engine teardown with resource cleanup.
+        
+        Handles meta tensor scenarios that occur with CPU offloading (accelerate).
+        Separates .to("cpu") from component deletion to ensure cleanup proceeds
+        even when meta tensors prevent device transfer.
+        """
         try:
             # 1. Unload any DoRA adapters completely
             if self.pipe and self.dora_loaded:
@@ -1174,8 +1179,33 @@ class NoobAIEngine:
 
             # 2. Clear pipeline components
             if self.pipe:
+                # Step 2a: Try to move pipeline to CPU (optional, helps free GPU memory)
+                # This may fail with meta tensors when CPU offloading is enabled
                 try:
-                    self.pipe = self.pipe.to("cpu")
+                    # Check if CPU offloading was enabled (use getattr for safety on partial init)
+                    cpu_offload = getattr(self, '_cpu_offload_enabled', False)
+                    
+                    if not cpu_offload:
+                        self.pipe = self.pipe.to("cpu")
+                except RuntimeError as e:
+                    # Handle meta tensor case gracefully - common with accelerate/CPU offloading
+                    error_str = str(e)
+                    if "meta tensor" in error_str.lower() or "Cannot copy out of meta" in error_str:
+                        logger.debug("Skipping .to(cpu) for meta tensor pipeline (expected with CPU offloading)")
+                    else:
+                        logger.warning(f"Error moving pipeline to CPU: {e}")
+                except Exception as e:
+                    logger.warning(f"Error moving pipeline to CPU: {e}")
+
+                # Step 2b: For CPU-offloaded or accelerate-managed pipelines, release hooks
+                try:
+                    if hasattr(self.pipe, 'maybe_free_model_hooks'):
+                        self.pipe.maybe_free_model_hooks()
+                except Exception as e:
+                    logger.debug(f"Could not free model hooks: {e}")
+
+                # Step 2c: Always try to delete components regardless of .to() success
+                try:
                     components_to_delete = ['unet', 'vae', 'text_encoder', 'text_encoder_2', 'scheduler']
                     for component_name in components_to_delete:
                         if hasattr(self.pipe, component_name):
