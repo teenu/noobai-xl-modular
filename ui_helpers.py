@@ -108,6 +108,8 @@ def _coerce_int(value: Union[int, float, str, Any], label: str) -> int:
     """Coerce value to integer with descriptive error message.
     
     Handles floats from Gradio sliders, strings from textboxes, and numpy types.
+    
+    Note: OverflowError is caught to handle edge cases like int(float('inf')).
     """
     try:
         # Handle None
@@ -120,7 +122,10 @@ def _coerce_int(value: Union[int, float, str, Any], label: str) -> int:
         
         # Convert to int (handles float, str, etc.)
         return int(value)
-    except (TypeError, ValueError) as e:
+    except InvalidParameterError:
+        # Re-raise our own exceptions without wrapping
+        raise
+    except (TypeError, ValueError, OverflowError) as e:
         raise InvalidParameterError(f"{label} must be an integer value, got {type(value).__name__}: {e}")
 
 def _coerce_float(value: Union[int, float, str, Any], label: str) -> float:
@@ -135,6 +140,9 @@ def _coerce_float(value: Union[int, float, str, Any], label: str) -> float:
             value = value.item()
         
         return float(value)
+    except InvalidParameterError:
+        # Re-raise our own exceptions without wrapping
+        raise
     except (TypeError, ValueError) as e:
         raise InvalidParameterError(f"{label} must be a numeric value, got {type(value).__name__}: {e}")
 
