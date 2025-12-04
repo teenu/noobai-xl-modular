@@ -604,7 +604,17 @@ def generate_image_with_progress(
     by the Gradio event chain (.then handlers), specifically finish_generation().
     This function sets intermediate states (ERROR, INTERRUPTED) for error cases,
     and COMPLETED for success, but IDLE transition happens in finish_generation().
+    
+    Early exit: If state is not GENERATING (e.g., queue trigger fired but was a no-op),
+    this function returns immediately without doing anything.
     """
+    # Early exit if not in generating state
+    # This handles the case where queue_trigger_input.change() fires but
+    # conditional_queue_start() did not set GENERATING state
+    if not state_manager.is_generating():
+        logger.debug("generate_image_with_progress called but state is not GENERATING - returning early")
+        return None, "", seed
+    
     try:
         # Check engine with thread-safe access and get local reference
         with _engine_lock:
@@ -799,8 +809,18 @@ def remove_from_queue(item_id: str) -> Tuple[str, str]:
     from state import queue_manager
     from config import QUEUE_CONFIG
 
-    queue_manager.remove(item_id)
-    status = f'<span style="color: gray;">Queue: {queue_manager.size()}/{QUEUE_CONFIG.MAX_QUEUE_SIZE}</span>'
+    # Ignore empty item_id (can happen when textbox is cleared)
+    if not item_id or not item_id.strip():
+        return render_queue_html(), get_queue_status_html()
+
+    removed = queue_manager.remove(item_id.strip())
+    
+    if removed:
+        logger.info(f"Removed queue item: {item_id}")
+        status = f'<span style="color: green;">✅ Removed - Queue: {queue_manager.size()}/{QUEUE_CONFIG.MAX_QUEUE_SIZE}</span>'
+    else:
+        logger.warning(f"Queue item not found for removal: {item_id}")
+        status = f'<span style="color: gray;">Queue: {queue_manager.size()}/{QUEUE_CONFIG.MAX_QUEUE_SIZE}</span>'
 
     return render_queue_html(), status
 
@@ -971,6 +991,41 @@ def get_gallery_count_html() -> str:
 
 
 # ============================================================================
+# QUEUE AUTO-PROCESSING - GRADIO-NATIVE IMPLEMENTATION
+# ============================================================================
+
+def conditional_queue_start(trigger_value: str) -> Tuple[str, gr.update, gr.update]:
+    """Handle queue trigger - only start generation if value is 'trigger' and not already generating.
+    
+    This function implements atomic state checking to prevent race conditions when
+    multiple queue trigger events fire in quick succession.
+    
+    Args:
+        trigger_value: The value of queue_trigger_input (should be "trigger" to start)
+        
+    Returns:
+        Tuple of (new_trigger_value, interrupt_btn_update, generate_btn_update)
+    """
+    if trigger_value == "trigger":
+        # Try to atomically start generation
+        # try_start_generation() uses a lock internally and only succeeds if state is IDLE
+        if state_manager.try_start_generation():
+            logger.info("Queue auto-processing: Starting next generation")
+            return (
+                "",  # Reset trigger to prevent re-triggering
+                gr.update(visible=True, interactive=True),  # Show interrupt button
+                gr.update(value="🔄 Generating...", interactive=False)  # Update generate button
+            )
+        else:
+            # Already generating (another chain got there first) - just reset trigger
+            logger.debug("Queue trigger received but already generating - ignoring")
+            return ("", gr.update(), gr.update())
+    
+    # Not a trigger value - return no-ops (don't change anything)
+    return (gr.update(), gr.update(), gr.update())
+
+
+# ============================================================================
 # MODIFIED GENERATION FLOW WITH QUEUE/GALLERY SUPPORT
 # ============================================================================
 
@@ -980,6 +1035,9 @@ def finish_generation_with_gallery(
     final_seed: str
 ) -> Tuple[gr.update, gr.update, List[str], str, str, str, bool]:
     """Finish generation and handle queue/gallery updates.
+    
+    Only triggers queue continuation if we actually generated an image successfully.
+    This prevents infinite loops when the trigger fires but generation was skipped.
 
     Returns:
         Tuple of:
@@ -989,15 +1047,18 @@ def finish_generation_with_gallery(
         - gallery count html
         - queue html
         - queue status html
-        - should_continue (True if more queue items to process)
+        - should_continue (True if more queue items to process AND we generated something)
     """
     from state import gallery_manager, queue_manager
 
     # Reset generation state
     state_manager.finish_generation()
 
+    # Check if we actually generated something
+    actually_generated = saved_image_path and os.path.exists(saved_image_path)
+
     # Add to gallery if successful
-    if saved_image_path and os.path.exists(saved_image_path):
+    if actually_generated:
         try:
             seed_int = int(final_seed) if final_seed.isdigit() else 0
         except (ValueError, TypeError):
@@ -1019,8 +1080,14 @@ def finish_generation_with_gallery(
     queue_html = render_queue_html()
     queue_status = get_queue_status_html()
 
-    # Check if we should continue processing queue
-    should_continue = should_process_queue()
+    # Only continue processing queue if:
+    # 1. We actually generated an image (prevents loops on skipped generations)
+    # 2. Auto-process is enabled
+    # 3. Queue still has items
+    should_continue = actually_generated and should_process_queue()
+    
+    if should_continue:
+        logger.info(f"Queue has {queue_manager.size()} more items - will continue processing")
 
     return (
         gr.update(visible=False),
@@ -1037,7 +1104,7 @@ def process_next_queue_item(should_continue: bool) -> Tuple:
     """Load next queue item into generation inputs if auto-process enabled.
 
     Returns:
-        Tuple of all generation input values + trigger_generation flag
+        Tuple of all generation input values + should_continue flag for next step
     """
     if not should_continue:
         # Return unchanged updates, no trigger
@@ -1046,11 +1113,12 @@ def process_next_queue_item(should_continue: bool) -> Tuple:
             gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
             gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
             gr.update(),
-            False  # trigger_generation
+            False  # should_continue for next step
         )
 
     next_item = get_next_queue_item()
     if not next_item:
+        logger.debug("process_next_queue_item: No items in queue")
         return (
             gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
             gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
@@ -1059,7 +1127,9 @@ def process_next_queue_item(should_continue: bool) -> Tuple:
             False
         )
 
-    # Return values to populate inputs, with trigger
+    logger.info(f"Loading next queue item: {next_item['prompt'][:50]}...")
+
+    # Return values to populate inputs, with should_continue=True to trigger next generation
     return (
         next_item['prompt'],
         next_item['negative_prompt'],
@@ -1077,20 +1147,25 @@ def process_next_queue_item(should_continue: bool) -> Tuple:
         next_item['dora_start_step'],
         next_item['dora_toggle_mode'],
         next_item['dora_manual_schedule'],
-        True  # trigger_generation
+        True  # should_continue - trigger next generation
     )
 
 
-def trigger_queue_generation(trigger: bool) -> Tuple[gr.update, gr.update, str]:
-    """Trigger generation if queue item was loaded.
+def trigger_queue_generation(should_continue: bool) -> Tuple[gr.update, gr.update, str]:
+    """Trigger next generation if queue item was loaded.
+    
+    This sets queue_trigger_input to "trigger" which fires the .change() event,
+    which calls conditional_queue_start(), which starts the next generation.
 
     Args:
-        trigger: Whether to trigger generation
+        should_continue: Whether to trigger the next generation
 
     Returns:
         Tuple of (interrupt_btn update, generate_btn update, trigger_input_value)
     """
-    if trigger:
-        # Return "trigger" value which JS will detect and click the generate button
+    if should_continue:
+        logger.debug("Setting queue trigger to start next generation")
+        # Return "trigger" to fire the queue_trigger_input.change() event
         return gr.update(), gr.update(value="🎨 Generate Image", interactive=True), "trigger"
+    
     return gr.update(), gr.update(), ""

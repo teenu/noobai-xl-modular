@@ -20,7 +20,7 @@ from ui_helpers import (
     add_to_queue, remove_from_queue, clear_queue, set_auto_process,
     render_queue_html, get_queue_status_html, clear_gallery, select_gallery_image,
     get_gallery_count_html, finish_generation_with_gallery, process_next_queue_item,
-    trigger_queue_generation
+    trigger_queue_generation, conditional_queue_start
 )
 from config import QUEUE_CONFIG
 
@@ -170,6 +170,17 @@ def create_interface(model_path: str = None) -> gr.Blocks:
             font-style: italic;
         }
 
+        /* Hidden inputs - keep in DOM but visually hidden for JS interaction */
+        .hidden-input-wrapper {
+            position: absolute !important;
+            left: -10000px !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
         /* Session Gallery Styles - Optimized for 1024x1024 images scaled to ~256px thumbnails */
         .session-gallery-container {
             margin-top: 10px;
@@ -229,6 +240,9 @@ def create_interface(model_path: str = None) -> gr.Blocks:
         <script>
         // Store observers for cleanup
         window.noobaiObservers = window.noobaiObservers || [];
+        
+        // Queue continuation flag - set by Python via hidden element
+        window.noobaiQueueContinue = false;
 
         function setupDoraGridHandlers() {
             // Use requestAnimationFrame with retry logic instead of fixed timeout
@@ -258,14 +272,10 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                         });
                         const scheduleCSV = schedule.join(', ');
 
-                        // Update hidden textbox
+                        // Update hidden textbox using Gradio-compatible method
                         const hiddenBox = document.getElementById('dora_manual_schedule_hidden');
                         if (hiddenBox) {
-                            const input = hiddenBox.querySelector('textarea, input');
-                            if (input) {
-                                input.value = scheduleCSV;
-                                input.dispatchEvent(new Event('input', { bubbles: true }));
-                            }
+                            triggerGradioInput(hiddenBox, scheduleCSV);
                         }
                     });
                 });
@@ -287,25 +297,77 @@ def create_interface(model_path: str = None) -> gr.Blocks:
             doraObserver.observe(document.body, { childList: true, subtree: true });
         }, 1000);
 
-        // Queue item removal handler - use event delegation for dynamically created buttons
+        // Robust Gradio input trigger - works with Gradio 4.x
+        function triggerGradioInput(container, value) {
+            if (!container) return false;
+            
+            // Find input element (textarea or input)
+            let input = container.querySelector('textarea') || 
+                        container.querySelector('input[type="text"]') || 
+                        container.querySelector('input');
+            
+            if (!input) {
+                console.error('[NoobAI] No input found in container:', container.id);
+                return false;
+            }
+            
+            // Store original value to detect if change is needed
+            const originalValue = input.value;
+            
+            // Set value using native setter to bypass any framework proxies
+            const descriptor = Object.getOwnPropertyDescriptor(
+                input.tagName.toLowerCase() === 'textarea' ? 
+                    HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+                'value'
+            );
+            
+            if (descriptor && descriptor.set) {
+                descriptor.set.call(input, value);
+            } else {
+                input.value = value;
+            }
+            
+            // Dispatch events that Gradio listens to
+            // Order matters: input first, then change
+            input.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertText',
+                data: value
+            }));
+            
+            // Small delay before change event
+            setTimeout(function() {
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // Gradio 4.x sometimes needs blur to commit
+                input.dispatchEvent(new Event('blur', { bubbles: true }));
+            }, 10);
+            
+            return true;
+        }
+
+        // Queue item removal handler - robust implementation for Gradio 4.x
         function removeQueueItem(itemId) {
+            if (!itemId) {
+                console.error('[NoobAI Queue] No item ID provided');
+                return;
+            }
+
+            console.log('[NoobAI Queue] Removing item:', itemId);
+
             // Find the hidden textbox for queue commands
             const cmdBox = document.getElementById('queue_command_input');
-            if (cmdBox) {
-                const input = cmdBox.querySelector('textarea, input');
-                if (input) {
-                    console.log('[NoobAI Queue] Removing item:', itemId);
-                    // Set value and dispatch events
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                        window.HTMLInputElement.prototype, 'value'
-                    ).set;
-                    nativeInputValueSetter.call(input, itemId);
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    // Trigger change event after a short delay
-                    setTimeout(function() {
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }, 100);
-                }
+            if (!cmdBox) {
+                console.error('[NoobAI Queue] Command input box not found');
+                return;
+            }
+
+            // Use robust trigger function
+            const success = triggerGradioInput(cmdBox, itemId);
+            
+            if (!success) {
+                console.error('[NoobAI Queue] Failed to trigger input for removal');
             }
         }
 
@@ -324,57 +386,91 @@ def create_interface(model_path: str = None) -> gr.Blocks:
             }
         });
 
-        // Queue auto-processing: use a more direct approach
-        // Instead of observing the trigger input, we'll use a timer-based check
-        // This is more reliable across different browser/Gradio versions
-        var queueAutoProcessInterval = null;
-
-        function startQueueAutoProcess() {
-            if (queueAutoProcessInterval) return; // Already running
-
-            queueAutoProcessInterval = setInterval(function() {
-                const triggerBox = document.getElementById('queue_trigger_input');
-                if (!triggerBox) return;
-
-                const input = triggerBox.querySelector('textarea, input');
-                if (input && input.value === 'trigger') {
-                    // Reset the trigger immediately
-                    input.value = '';
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-
-                    // Find and click the generate button
-                    setTimeout(function() {
-                        // Look for the generate button by its text content
-                        const buttons = document.querySelectorAll('button');
-                        for (const btn of buttons) {
-                            const text = btn.textContent || '';
-                            if (text.includes('Generate Image') && !text.includes('Not Ready')) {
-                                // Check if button is enabled
-                                if (!btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
-                                    console.log('[NoobAI Queue] Auto-triggering next generation');
-                                    btn.click();
-                                    break;
-                                }
-                            }
-                        }
-                    }, 200);
-                }
-            }, 250); // Check every 250ms
+        // Queue auto-processing: Click generate button when signaled
+        // This is triggered by observing a hidden element that Python updates
+        function setupQueueAutoProcess() {
+            // Find the queue trigger element
+            const triggerBox = document.getElementById('queue_trigger_input');
+            if (!triggerBox) {
+                // Retry if not found yet
+                setTimeout(setupQueueAutoProcess, 500);
+                return;
+            }
+            
+            // Create a MutationObserver to watch for value changes
+            const observer = new MutationObserver(function(mutations) {
+                checkQueueTrigger();
+            });
+            
+            // Also poll periodically as a fallback
+            setInterval(checkQueueTrigger, 200);
+            
+            console.log('[NoobAI Queue] Auto-process observer initialized');
         }
-
-        function stopQueueAutoProcess() {
-            if (queueAutoProcessInterval) {
-                clearInterval(queueAutoProcessInterval);
-                queueAutoProcessInterval = null;
+        
+        function checkQueueTrigger() {
+            const triggerBox = document.getElementById('queue_trigger_input');
+            if (!triggerBox) return;
+            
+            const input = triggerBox.querySelector('textarea') || 
+                          triggerBox.querySelector('input');
+            if (!input) return;
+            
+            const value = input.value.trim();
+            
+            if (value === 'trigger') {
+                console.log('[NoobAI Queue] Trigger detected - clicking generate button');
+                
+                // Clear the trigger first to prevent re-triggering
+                if (Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')) {
+                    const setter = Object.getOwnPropertyDescriptor(
+                        input.tagName.toLowerCase() === 'textarea' ? 
+                            HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+                        'value'
+                    ).set;
+                    setter.call(input, '');
+                } else {
+                    input.value = '';
+                }
+                
+                // Find and click the generate button
+                // Look for the button by its text content
+                const buttons = document.querySelectorAll('button');
+                for (const btn of buttons) {
+                    const text = btn.textContent || btn.innerText || '';
+                    if (text.includes('Generate Image') && !btn.disabled) {
+                        console.log('[NoobAI Queue] Clicking generate button');
+                        btn.click();
+                        return;
+                    }
+                }
+                
+                // Fallback: look for primary variant button in generation section
+                const primaryBtns = document.querySelectorAll('button.primary, button[class*="primary"]');
+                for (const btn of primaryBtns) {
+                    if (!btn.disabled && btn.offsetParent !== null) {
+                        const text = btn.textContent || '';
+                        if (text.includes('Generate') || text.includes('🎨')) {
+                            console.log('[NoobAI Queue] Clicking primary button (fallback)');
+                            btn.click();
+                            return;
+                        }
+                    }
+                }
+                
+                console.warn('[NoobAI Queue] Generate button not found or disabled');
             }
         }
+        
+        // Initialize queue auto-processing after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupQueueAutoProcess);
+        } else {
+            setTimeout(setupQueueAutoProcess, 1000);
+        }
 
-        // Start auto-processing on page load
-        setTimeout(startQueueAutoProcess, 1500);
-
-        // Cleanup observers and intervals on page unload to prevent memory leaks
+        // Cleanup observers on page unload to prevent memory leaks
         window.addEventListener('beforeunload', function() {
-            stopQueueAutoProcess();
             if (window.noobaiObservers) {
                 window.noobaiObservers.forEach(function(obs) {
                     try { obs.disconnect(); } catch(e) {}
@@ -670,17 +766,23 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                         '<div class="queue-empty">Queue is empty - add items with "Add to Queue"</div>'
                     )
                     # Hidden input for queue item removal (triggered by JS)
-                    queue_remove_input = gr.Textbox(
-                        value="",
-                        visible=False,
-                        elem_id="queue_command_input"
-                    )
-                    # Hidden input for queue auto-processing trigger (set by Python, detected by JS)
-                    queue_trigger_input = gr.Textbox(
-                        value="",
-                        visible=False,
-                        elem_id="queue_trigger_input"
-                    )
+                    # Keep visible=True but use CSS to hide - ensures DOM element exists for JS
+                    with gr.Column(elem_classes=["hidden-input-wrapper"]):
+                        queue_remove_input = gr.Textbox(
+                            value="",
+                            show_label=False,
+                            container=False,
+                            elem_id="queue_command_input"
+                        )
+                    # Hidden input for queue auto-processing trigger
+                    # Uses Gradio-native .change() event instead of JS polling
+                    with gr.Column(elem_classes=["hidden-input-wrapper"]):
+                        queue_trigger_input = gr.Textbox(
+                            value="",
+                            show_label=False,
+                            container=False,
+                            elem_id="queue_trigger_input"
+                        )
 
             # Output column
             with gr.Column(scale=2):
@@ -1092,6 +1194,41 @@ def create_interface(model_path: str = None) -> gr.Blocks:
         ).then(
             finish_generation_with_gallery,
             inputs=[output_image, generation_info, last_seed_display],  # Use last_seed_display, not seed input
+            outputs=[
+                interrupt_btn, generate_btn,
+                gallery_carousel, gallery_count,
+                queue_display, queue_status,
+                should_continue_state
+            ]
+        ).then(
+            process_next_queue_item,
+            inputs=[should_continue_state],
+            outputs=[
+                final_prompt, negative_prompt, resolution, cfg_scale, steps,
+                rescale_cfg, seed, use_custom_resolution, custom_width,
+                custom_height, auto_randomize_seed, adapter_strength,
+                enable_dora, dora_start_step, dora_toggle_mode, dora_manual_schedule_state,
+                should_continue_state
+            ]
+        ).then(
+            trigger_queue_generation,
+            inputs=[should_continue_state],
+            outputs=[interrupt_btn, generate_btn, queue_trigger_input]
+        )
+
+        # Queue auto-processing via Gradio-native .change() event
+        # This replaces the unreliable JavaScript polling approach
+        queue_trigger_input.change(
+            conditional_queue_start,
+            inputs=[queue_trigger_input],
+            outputs=[queue_trigger_input, interrupt_btn, generate_btn]
+        ).then(
+            generate_image_with_progress,
+            inputs=gen_inputs,
+            outputs=gen_outputs
+        ).then(
+            finish_generation_with_gallery,
+            inputs=[output_image, generation_info, last_seed_display],
             outputs=[
                 interrupt_btn, generate_btn,
                 gallery_carousel, gallery_count,
