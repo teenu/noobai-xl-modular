@@ -340,10 +340,10 @@ def create_interface(model_path: str = None) -> gr.Blocks:
 
                             dora_toggle_mode = gr.Radio(
                                 label="🔄 DoRA Toggle Mode",
-                                choices=[("None", None), ("Standard", "standard"), ("Smart", "smart"), ("Manual", "manual")],
-                                value=None,
+                                choices=[("None", None), ("Standard", "standard"), ("Smart", "smart"), ("Optimized", "optimized"), ("Manual", "manual")],
+                                value="optimized",
                                 visible=default_enable_dora,
-                                info="Standard: ON,OFF throughout. Smart: ON,OFF to step 20, then ON. Manual: Custom grid"
+                                info="Optimized: Empirically-tuned phased activation (recommended). Standard: ON,OFF throughout. Smart: ON,OFF to step 20, then ON. Manual: Custom grid"
                             )
 
                             # Manual DoRA schedule grid (GitHub contributions style)
@@ -627,7 +627,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
         # Toggle mode handler - disable start step when any toggle mode is active
         def handle_toggle_mode_change(toggle_mode, num_steps, current_schedule):
             """Handle DoRA toggle mode changes including manual grid visibility."""
-            from utils import generate_standard_schedule, generate_smart_schedule
+            from utils import generate_standard_schedule, generate_smart_schedule, generate_optimized_schedule
 
             try:
                 steps_int = max(int(num_steps), 1)
@@ -663,6 +663,16 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                 return (
                     gr.update(interactive=False, value=1),
                     gr.update(value='<div style="color: gray;">⚪ Disabled (Smart toggle active)</div>'),
+                    gr.update(visible=False),  # Hide grid
+                    gr.update(visible=False, value=schedule_csv)  # Hide textbox but set value
+                )
+            elif toggle_mode == "optimized":
+                # Hide grid and textbox, auto-populate with optimized pattern (recommended)
+                schedule = generate_optimized_schedule(steps_int)
+                schedule_csv = ", ".join(str(x) for x in schedule)
+                return (
+                    gr.update(interactive=False, value=1),
+                    gr.update(value='<div style="color: gray;">⚪ Disabled (Optimized toggle active)</div>'),
                     gr.update(visible=False),  # Hide grid
                     gr.update(visible=False, value=schedule_csv)  # Hide textbox but set value
                 )
@@ -811,6 +821,12 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                 # Regenerate smart schedule for new step count
                 from utils import generate_smart_schedule
                 schedule = generate_smart_schedule(steps_int)
+                schedule_csv = ", ".join(str(x) for x in schedule)
+                return gr.update(), gr.update(value=schedule_csv)
+            elif toggle_mode == "optimized":
+                # Regenerate optimized schedule for new step count
+                from utils import generate_optimized_schedule
+                schedule = generate_optimized_schedule(steps_int)
                 schedule_csv = ", ".join(str(x) for x in schedule)
                 return gr.update(), gr.update(value=schedule_csv)
             else:

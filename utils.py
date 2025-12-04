@@ -606,5 +606,45 @@ def generate_smart_schedule(num_steps: int) -> List[int]:
             schedule.append(1)
     return schedule
 
+
+def generate_optimized_schedule(num_steps: int) -> List[int]:
+    """
+    Generate optimized DoRA schedule based on empirically-tuned 34-step pattern.
+
+    This pattern was optimized for NoobAI V-Pred with the stabilizer DoRA adapter.
+    It achieves ~44% DoRA activation with strategic phase alignment:
+    - OFF during high-noise structure formation
+    - Selective pulses during mid-noise detail emergence
+    - ON continuously during low-noise refinement
+
+    Args:
+        num_steps: Total number of diffusion steps
+
+    Returns:
+        List of 0/1 values scaled to the requested step count
+    """
+    from config import OPTIMIZED_DORA_SCHEDULE
+
+    if num_steps <= 0:
+        return []
+
+    base_schedule = OPTIMIZED_DORA_SCHEDULE
+    base_len = len(base_schedule)  # 34
+
+    if num_steps == base_len:
+        return list(base_schedule)
+
+    # Scale the schedule to match num_steps
+    # Use linear interpolation to preserve phase proportions
+    result = []
+    for i in range(num_steps):
+        # Map current step to base schedule index
+        base_idx = int(i * base_len / num_steps)
+        base_idx = min(base_idx, base_len - 1)
+        result.append(base_schedule[base_idx])
+
+    return result
+
+
 # Initialize CSV paths
 CSV_PATHS = get_safe_csv_paths()

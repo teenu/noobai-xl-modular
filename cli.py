@@ -182,7 +182,7 @@ def cli_generate(args):
             adapter_strength=args.adapter_strength if args.enable_dora else None,
             enable_dora=args.enable_dora,
             dora_start_step=args.dora_start_step if args.enable_dora else None,
-            dora_toggle_mode=args.dora_toggle_mode if args.enable_dora else None,
+            dora_toggle_mode=(None if args.dora_toggle_mode == "none" else args.dora_toggle_mode) if args.enable_dora else None,
             dora_manual_schedule=manual_schedule_csv if args.enable_dora else None,
             progress_callback=progress_callback
         )
@@ -319,11 +319,13 @@ Examples:
     cli_group.add_argument(
         "--width",
         type=int,
+        default=OPTIMAL_SETTINGS['width'],
         help=f"Image width (default: {OPTIMAL_SETTINGS['width']})"
     )
     cli_group.add_argument(
         "--height",
         type=int,
+        default=OPTIMAL_SETTINGS['height'],
         help=f"Image height (default: {OPTIMAL_SETTINGS['height']})"
     )
     cli_group.add_argument(
@@ -369,9 +371,9 @@ Examples:
     cli_group.add_argument(
         "--dora-toggle-mode",
         type=str,
-        choices=["standard", "smart", "manual"],
-        default=None,
-        help="DoRA toggle mode. 'standard': ON,OFF,ON,OFF throughout. 'smart': ON,OFF,ON,OFF through step 20, then ON for remainder. 'manual': use custom CSV schedule"
+        choices=["none", "standard", "smart", "optimized", "manual"],
+        default="optimized",
+        help="DoRA toggle mode. 'none': disable toggle mode (use dora-start-step instead). 'standard': ON,OFF,ON,OFF throughout. 'smart': ON,OFF to step 20, then ON. 'optimized': empirically-tuned phased activation (recommended). 'manual': use custom CSV schedule"
     )
     cli_group.add_argument(
         "--dora-manual-schedule",

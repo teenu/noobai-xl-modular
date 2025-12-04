@@ -254,7 +254,10 @@ def create_status_updater(param_type: str):
             value = float(value)
         except (TypeError, ValueError):
             return '<div style="color: red;">❌ Invalid value</div>'
-        if 3.5 <= value <= 5.5:
+        optimal_cfg = OPTIMAL_SETTINGS['cfg_scale']
+        if abs(value - optimal_cfg) < 0.1:
+            return f'<div style="color: green;">✅ Ideal ({optimal_cfg})</div>'
+        elif 3.5 <= value <= 5.5:
             return '<div style="color: green;">✅ Optimal range (3.5-5.5)</div>'
         else:
             return '<div style="color: orange;">⚠️ Outside optimal range (3.5-5.5)</div>'
@@ -264,7 +267,10 @@ def create_status_updater(param_type: str):
             value = int(value)
         except (TypeError, ValueError):
             return '<div style="color: red;">❌ Invalid value</div>'
-        if 32 <= value <= 40:
+        optimal_steps = OPTIMAL_SETTINGS['steps']
+        if value == optimal_steps:
+            return f'<div style="color: green;">✅ Ideal ({optimal_steps})</div>'
+        elif 32 <= value <= 40:
             return '<div style="color: green;">✅ Optimal range (32-40)</div>'
         elif value >= 10:
             return '<div style="color: orange;">⚠️ Below optimal range (32-40)</div>'
@@ -276,8 +282,11 @@ def create_status_updater(param_type: str):
             value = float(value)
         except (TypeError, ValueError):
             return '<div style="color: red;">❌ Invalid value</div>'
-        if abs(value - 0.7) < 0.1:
-            return '<div style="color: green;">✅ Optimal (around 0.7)</div>'
+        optimal_rescale = OPTIMAL_SETTINGS['rescale_cfg']
+        if abs(value - optimal_rescale) < 0.05:
+            return f'<div style="color: green;">✅ Ideal (around {optimal_rescale})</div>'
+        elif 0.4 <= value <= 0.8:
+            return '<div style="color: green;">✅ Optimal range (0.4-0.8)</div>'
         else:
             return '<div style="color: blue;">📊 Valid</div>'
 

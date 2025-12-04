@@ -16,7 +16,7 @@ from PIL import Image
 from PIL import PngImagePlugin
 from typing import Optional, Tuple, Dict, Any, Callable, List
 from config import (
-    logger, MODEL_CONFIG, DEFAULT_NEGATIVE_PROMPT, OPTIMAL_SETTINGS,
+    logger, MODEL_CONFIG, GEN_CONFIG, DEFAULT_NEGATIVE_PROMPT, OPTIMAL_SETTINGS,
     OFFICIAL_RESOLUTIONS, RECOMMENDED_RESOLUTIONS,
     EngineNotInitializedError, GenerationInterruptedError, InvalidParameterError
 )
@@ -24,7 +24,7 @@ from state import perf_monitor, state_manager, GenerationState
 from utils import (
     detect_base_model_precision, detect_adapter_precision,
     validate_dora_path, find_dora_path, format_file_size,
-    parse_manual_dora_schedule
+    parse_manual_dora_schedule, generate_optimized_schedule
 )
 
 # ============================================================================
@@ -578,6 +578,9 @@ class NoobAIEngine:
                     self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
                 else:
                     self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+            elif dora_toggle_mode == "optimized":
+                # Optimized mode: Index 0 = OFF (structure formation phase)
+                self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
             else:
                 # Standard and Smart modes: Index 0 = ON
                 self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
@@ -634,13 +637,18 @@ class NoobAIEngine:
         Args:
             steps: Total number of generation steps
             start_time: Generation start time
-            dora_toggle_mode: Toggle mode ('manual', 'standard', 'smart', or None)
+            dora_toggle_mode: Toggle mode ('manual', 'standard', 'smart', 'optimized', or None)
             manual_schedule: Parsed manual schedule (if manual mode)
             progress_callback: User-provided progress callback
 
         Returns:
             Callback function for step_end events
         """
+        # Pre-compute optimized schedule once (performance optimization)
+        cached_optimized_schedule = None
+        if dora_toggle_mode == "optimized":
+            cached_optimized_schedule = generate_optimized_schedule(steps)
+
         def callback_on_step_end(pipe, step_index: int, timestep, callback_kwargs: Dict) -> Dict:
             """Diffusers callback invoked at the end of each denoising step.
 
@@ -668,10 +676,10 @@ class NoobAIEngine:
             elapsed = time.time() - start_time
             eta = (elapsed / current_step) * (steps - current_step) if current_step > 0 else 0
 
-            # Build progress description
+            # Build progress description (use cached optimized schedule for performance)
             desc = self._build_progress_description(
                 step_index, current_step, steps, eta,
-                dora_toggle_mode, manual_schedule
+                dora_toggle_mode, manual_schedule, cached_optimized_schedule
             )
 
             # Call user callback with error isolation
@@ -705,7 +713,8 @@ class NoobAIEngine:
         steps: int,
         eta: float,
         dora_toggle_mode: Optional[str],
-        manual_schedule: Optional[List[int]]
+        manual_schedule: Optional[List[int]],
+        cached_optimized_schedule: Optional[List[int]] = None
     ) -> str:
         """
         Build progress description string and update DoRA state for next step.
@@ -717,6 +726,7 @@ class NoobAIEngine:
             eta: Estimated time remaining
             dora_toggle_mode: Toggle mode
             manual_schedule: Manual schedule
+            cached_optimized_schedule: Pre-computed optimized schedule (for performance)
 
         Returns:
             Progress description string
@@ -729,6 +739,12 @@ class NoobAIEngine:
                 return self._handle_standard_toggle(step_index, current_step, steps, eta, next_step_index)
             elif dora_toggle_mode == "smart":
                 return self._handle_smart_toggle(step_index, current_step, steps, eta, next_step_index)
+            elif dora_toggle_mode == "optimized":
+                # Use cached schedule for performance (avoid regenerating every step)
+                optimized_schedule = cached_optimized_schedule or generate_optimized_schedule(steps)
+                return self._handle_optimized_toggle(
+                    step_index, current_step, steps, eta, next_step_index, optimized_schedule
+                )
             elif dora_toggle_mode == "manual":
                 return self._handle_manual_toggle(
                     step_index, current_step, steps, eta, next_step_index, manual_schedule
@@ -795,6 +811,50 @@ class NoobAIEngine:
                 current_state = "ON"
             return f"Step {current_step}/{steps} (DoRA: {current_state}, final, ETA: {eta:.1f}s)"
 
+    def _handle_optimized_toggle(
+        self,
+        step_index: int,
+        current_step: int,
+        steps: int,
+        eta: float,
+        next_step_index: int,
+        optimized_schedule: List[int]
+    ) -> str:
+        """Handle optimized toggle mode progress description with device synchronization.
+
+        This mode uses an empirically-tuned DoRA activation pattern optimized for
+        NoobAI V-Pred with the stabilizer DoRA adapter. It achieves ~44% activation
+        with strategic phase alignment for optimal quality.
+        """
+        if not optimized_schedule:
+            return f"Step {current_step}/{steps} (DoRA: OFF [no schedule], ETA: {eta:.1f}s)"
+
+        # Bounds check to prevent IndexError if schedule is malformed
+        if step_index >= len(optimized_schedule):
+            current_state = "OFF"
+        else:
+            current_state = "ON" if optimized_schedule[step_index] == 1 else "OFF"
+
+        if next_step_index < steps:
+            # Use lock to prevent race conditions during adapter weight changes
+            with self._toggle_lock:
+                # Bounds check for next step
+                if next_step_index >= len(optimized_schedule):
+                    next_state = "OFF"
+                    self._synchronize_device()
+                    self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+                else:
+                    next_state = "ON" if optimized_schedule[next_step_index] == 1 else "OFF"
+                    self._synchronize_device()
+                    # Set adapter for next step
+                    if optimized_schedule[next_step_index] == 1:
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.adapter_strength])
+                    else:
+                        self.pipe.set_adapters(["noobai_dora"], adapter_weights=[0.0])
+            return f"Step {current_step}/{steps} (DoRA: {current_state} [optimized], next[{next_step_index}]: {next_state}, ETA: {eta:.1f}s)"
+        else:
+            return f"Step {current_step}/{steps} (DoRA: {current_state} [optimized], final, ETA: {eta:.1f}s)"
+
     def _handle_manual_toggle(
         self,
         step_index: int,
@@ -857,6 +917,8 @@ class NoobAIEngine:
                     dora_info += ", toggle: ON,OFF throughout"
                 elif dora_toggle_mode == "smart":
                     dora_info += ", smart toggle: ON,OFF to step 20, then ON"
+                elif dora_toggle_mode == "optimized":
+                    dora_info += ", optimized toggle: empirically-tuned phases (~44% active)"
                 elif dora_toggle_mode == "manual":
                     dora_info += ", manual toggle schedule"
                 elif self.dora_start_step > 1:
@@ -1076,6 +1138,69 @@ class NoobAIEngine:
             raise InvalidParameterError(
                 f"Steps must be positive, got {steps}"
             )
+
+        # Validate prompt parameters
+        if not isinstance(prompt, str):
+            raise InvalidParameterError(f"Prompt must be string, got {type(prompt).__name__}")
+        if not prompt.strip():
+            raise InvalidParameterError("Prompt cannot be empty")
+        if len(prompt) > GEN_CONFIG.MAX_PROMPT_LENGTH:
+            raise InvalidParameterError(
+                f"Prompt too long ({len(prompt)} > {GEN_CONFIG.MAX_PROMPT_LENGTH})"
+            )
+        if not isinstance(negative_prompt, str):
+            raise InvalidParameterError(f"Negative prompt must be string, got {type(negative_prompt).__name__}")
+        if len(negative_prompt) > GEN_CONFIG.MAX_PROMPT_LENGTH:
+            raise InvalidParameterError(
+                f"Negative prompt too long ({len(negative_prompt)} > {GEN_CONFIG.MAX_PROMPT_LENGTH})"
+            )
+
+        # Validate dimensions
+        for dim_name, dim_value in [("width", width), ("height", height)]:
+            if not isinstance(dim_value, int):
+                try:
+                    dim_value = int(dim_value)
+                except (TypeError, ValueError):
+                    raise InvalidParameterError(
+                        f"{dim_name} must be integer, got {type(dim_value).__name__}"
+                    )
+            if not (GEN_CONFIG.MIN_RESOLUTION <= dim_value <= GEN_CONFIG.MAX_RESOLUTION):
+                raise InvalidParameterError(
+                    f"{dim_name} must be in [{GEN_CONFIG.MIN_RESOLUTION}, {GEN_CONFIG.MAX_RESOLUTION}], got {dim_value}"
+                )
+            if dim_value % 8 != 0:
+                raise InvalidParameterError(
+                    f"{dim_name} must be divisible by 8, got {dim_value}"
+                )
+
+        # Validate CFG parameters
+        if not isinstance(cfg_scale, (int, float)):
+            raise InvalidParameterError(f"cfg_scale must be numeric, got {type(cfg_scale).__name__}")
+        if not (GEN_CONFIG.MIN_CFG_SCALE <= cfg_scale <= GEN_CONFIG.MAX_CFG_SCALE):
+            raise InvalidParameterError(
+                f"cfg_scale must be in [{GEN_CONFIG.MIN_CFG_SCALE}, {GEN_CONFIG.MAX_CFG_SCALE}], got {cfg_scale}"
+            )
+        if not isinstance(rescale_cfg, (int, float)):
+            raise InvalidParameterError(f"rescale_cfg must be numeric, got {type(rescale_cfg).__name__}")
+        if not (GEN_CONFIG.MIN_RESCALE_CFG <= rescale_cfg <= GEN_CONFIG.MAX_RESCALE_CFG):
+            raise InvalidParameterError(
+                f"rescale_cfg must be in [{GEN_CONFIG.MIN_RESCALE_CFG}, {GEN_CONFIG.MAX_RESCALE_CFG}], got {rescale_cfg}"
+            )
+
+        # Validate toggle mode
+        VALID_TOGGLE_MODES = {"standard", "smart", "optimized", "manual", None}
+        if dora_toggle_mode not in VALID_TOGGLE_MODES:
+            raise InvalidParameterError(
+                f"Invalid dora_toggle_mode: '{dora_toggle_mode}'. "
+                f"Must be one of {{'standard', 'smart', 'optimized', 'manual'}} or None"
+            )
+
+        # Validate dora_start_step doesn't exceed steps (when not using toggle mode)
+        if dora_start_step is not None and dora_toggle_mode is None:
+            if dora_start_step > steps:
+                raise InvalidParameterError(
+                    f"DoRA start step ({dora_start_step}) cannot exceed total steps ({steps})"
+                )
 
         with perf_monitor.time_section("image_generation"):
             # Build generation info

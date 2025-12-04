@@ -144,16 +144,32 @@ OFFICIAL_RESOLUTIONS = [
 # Recommended resolutions (highest quality)
 RECOMMENDED_RESOLUTIONS = [(832, 1216), (1216, 832)]
 
-# Optimal settings
+# Optimal settings (empirically tuned for best quality)
 OPTIMAL_SETTINGS = {
-    'steps': 35,
-    'cfg_scale': 4.5,
-    'rescale_cfg': 0.7,
+    'steps': 34,
+    'cfg_scale': 4.2,
+    'rescale_cfg': 0.55,
     'width': 1216,
     'height': 832,
     'adapter_strength': 1.0,
     'dora_start_step': 1,
 }
+
+# Optimized DoRA schedule for 34 steps (empirically tuned)
+# Pattern: OFF during structure formation, selective mid-phase activation, ON during refinement
+# This achieves ~44% DoRA activation with strategic phase alignment for optimal quality
+OPTIMIZED_DORA_SCHEDULE = [
+    0, 0, 0, 0, 0, 0,  # Steps 0-5: Structure formation (OFF)
+    1, 1, 1,           # Steps 6-8: Early style injection (ON)
+    0,                 # Step 9: Stability pause (OFF)
+    1, 1,              # Steps 10-11: Mid detail (ON)
+    0, 0, 0, 0, 0,     # Steps 12-16: Consolidation (OFF)
+    1, 1,              # Steps 17-18: Style pulse (ON)
+    0, 0, 0,           # Steps 19-21: Rest (OFF)
+    1,                 # Step 22: Accent (ON)
+    0, 0, 0, 0,        # Steps 23-26: Settle (OFF)
+    1, 1, 1, 1, 1, 1, 1  # Steps 27-33: Refinement (ON)
+]
 
 # Default prompts
 DEFAULT_NEGATIVE_PROMPT = "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits"
