@@ -150,8 +150,8 @@ class NoobAIEngine:
                 elif self._device == "cpu":
                     bf16_supported = False
 
-                # Select inference precision
-                if bf16_supported:
+                # Select inference precision based on model format and platform support
+                if base_precision == torch.bfloat16 and bf16_supported:
                     inference_dtype = torch.bfloat16
                 else:
                     inference_dtype = torch.float32
@@ -175,23 +175,31 @@ class NoobAIEngine:
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         self.model_path,
                         vae=vae,
+                        torch_dtype=inference_dtype,
                         # NOTE: torch_dtype parameter may be ignored for some components
                         # but we explicitly set VAE above to guarantee FP32 decode
                     )
 
-                    # Validate actual loaded precision matches expected FP32
+                    # Ensure UNet/Text Encoder use the selected inference dtype
+                    self.pipe.unet.to(dtype=inference_dtype)
+                    if hasattr(self.pipe, "text_encoder"):
+                        self.pipe.text_encoder.to(dtype=inference_dtype)
+                    if hasattr(self.pipe, "text_encoder_2"):
+                        self.pipe.text_encoder_2.to(dtype=inference_dtype)
+
+                    # Validate actual loaded precision matches expected settings
                     actual_unet_dtype = next(self.pipe.unet.parameters()).dtype
                     actual_te_dtype = next(self.pipe.text_encoder.parameters()).dtype
                     actual_vae_dtype = next(self.pipe.vae.parameters()).dtype
 
-                    if actual_unet_dtype != torch.float32:
+                    if actual_unet_dtype != inference_dtype:
                         raise ValueError(
-                            f"Expected FP32 model but UNet loaded with {actual_unet_dtype}. "
+                            f"Expected {inference_dtype} model but UNet loaded with {actual_unet_dtype}. "
                             f"Directory may contain wrong precision weights."
                         )
-                    if actual_te_dtype != torch.float32:
+                    if actual_te_dtype != inference_dtype:
                         raise ValueError(
-                            f"Expected FP32 model but TextEncoder loaded with {actual_te_dtype}. "
+                            f"Expected {inference_dtype} model but TextEncoder loaded with {actual_te_dtype}. "
                             f"Directory may contain wrong precision weights."
                         )
                     if actual_vae_dtype != torch.float32:
@@ -200,7 +208,10 @@ class NoobAIEngine:
                             f"This could cause decode quality issues."
                         )
 
-                    logger.info("FP32 directory model loaded with all components validated as FP32")
+                    logger.info(
+                        "FP32 directory model loaded with all components validated "
+                        f"(UNet/Text: {inference_dtype}, VAE: torch.float32)"
+                    )
 
                 else:
                     # Single file model (BF16) - load pipeline, then force VAE to FP32
@@ -226,6 +237,39 @@ class NoobAIEngine:
                     except Exception as e:
                         logger.error(f"Unexpected error during VAE upcast: {e}")
                         raise ValueError(f"Failed to upcast VAE to FP32: {e}")
+
+                    # Ensure UNet/Text Encoder use the selected inference dtype
+                    self.pipe.unet.to(dtype=inference_dtype)
+                    if hasattr(self.pipe, "text_encoder"):
+                        self.pipe.text_encoder.to(dtype=inference_dtype)
+                    if hasattr(self.pipe, "text_encoder_2"):
+                        self.pipe.text_encoder_2.to(dtype=inference_dtype)
+
+                    # Validate component dtypes after adjustments
+                    actual_unet_dtype = next(self.pipe.unet.parameters()).dtype
+                    actual_te_dtype = next(self.pipe.text_encoder.parameters()).dtype
+                    actual_vae_dtype = next(self.pipe.vae.parameters()).dtype
+
+                    if actual_unet_dtype != inference_dtype:
+                        raise ValueError(
+                            f"Expected {inference_dtype} model but UNet loaded with {actual_unet_dtype}. "
+                            "Single-file weights may be in an unexpected precision."
+                        )
+                    if actual_te_dtype != inference_dtype:
+                        raise ValueError(
+                            f"Expected {inference_dtype} model but TextEncoder loaded with {actual_te_dtype}. "
+                            "Single-file weights may be in an unexpected precision."
+                        )
+                    if actual_vae_dtype != torch.float32:
+                        raise ValueError(
+                            f"Expected FP32 VAE but loaded with {actual_vae_dtype}. "
+                            "This could cause decode quality issues."
+                        )
+
+                logger.info(
+                    "Pipeline created with inference dtype %s (UNet/Text) and VAE dtype torch.float32",
+                    inference_dtype,
+                )
 
                 # Configure scheduler
                 self.pipe.scheduler = EulerDiscreteScheduler.from_config(
