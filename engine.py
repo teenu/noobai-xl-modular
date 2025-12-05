@@ -10,6 +10,7 @@ import time
 import random
 import gc
 import threading
+import inspect
 
 # ============================================================================
 # DETERMINISM BOOTSTRAP (MUST RUN BEFORE ANY TORCH IMPORTS)
@@ -220,6 +221,21 @@ class NoobAIEngine:
                     using_device_map = True
                     logger.info("Using CPU device_map for module placement")
 
+                def _dtype_kwargs(target_fn: Callable[..., Any], dtype: torch.dtype) -> Dict[str, torch.dtype]:
+                    """Return the correct dtype kwarg name for the provided loader."""
+
+                    try:
+                        signature = inspect.signature(target_fn)
+                        if "dtype" in signature.parameters:
+                            return {"dtype": dtype}
+                        if "torch_dtype" in signature.parameters:
+                            return {"torch_dtype": dtype}
+                    except (TypeError, ValueError):
+                        # If inspection fails, fall back to torch_dtype for backwards compatibility
+                        pass
+
+                    return {"torch_dtype": dtype}
+
                 # Load FP32 pre-converted model or BF16 model with precision selection
                 if base_precision == torch.float32 and is_directory:
                     # CRITICAL FIX: Explicitly load VAE as FP32 for lossless decode
@@ -228,7 +244,7 @@ class NoobAIEngine:
                     if os.path.isdir(vae_path):
                         vae = AutoencoderKL.from_pretrained(
                             vae_path,
-                            dtype=torch.float32,
+                            **_dtype_kwargs(AutoencoderKL.from_pretrained, torch.float32),
                         )
                         logger.info("VAE loaded as FP32 from directory for lossless decode")
                     else:
@@ -239,10 +255,10 @@ class NoobAIEngine:
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         self.model_path,
                         vae=vae,
-                        dtype=inference_dtype,
+                        **_dtype_kwargs(StableDiffusionXLPipeline.from_pretrained, inference_dtype),
                         device_map=device_map,
                         max_memory=max_memory,
-                        # NOTE: dtype parameter may be ignored for some components
+                        # NOTE: torch_dtype parameter may be ignored for some components
                         # but we explicitly set VAE above to guarantee FP32 decode
                     )
 
@@ -297,7 +313,7 @@ class NoobAIEngine:
                     # load the full pipeline first, then upcast the VAE for lossless decode.
                     self.pipe = StableDiffusionXLPipeline.from_single_file(
                         self.model_path,
-                        dtype=inference_dtype,
+                        **_dtype_kwargs(StableDiffusionXLPipeline.from_single_file, inference_dtype),
                         use_safetensors=True,
                         device_map=device_map,
                         max_memory=max_memory,
