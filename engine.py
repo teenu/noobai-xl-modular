@@ -1294,8 +1294,15 @@ class NoobAIEngine:
                         f"Seed must be < 2^32 ({2**32}), got {seed}"
                     )
 
-            # Generator is intentionally on CPU for cross-platform determinism
-            # This ensures identical random numbers regardless of inference device
+            # Synchronize RNG state across Python, CPU, and GPU so that all
+            # stochastic operations (including any fallback paths) honor the
+            # requested seed. The per-device generator remains on CPU for
+            # deterministic noise sampling across platforms.
+            random.seed(seed)
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+
             generator = torch.Generator(device="cpu").manual_seed(seed)
 
             # Parse manual DoRA schedule
