@@ -12,12 +12,8 @@ from ui.generation import (
     start_generation, generate_image_with_progress,
     finish_generation, interrupt_generation
 )
-
-# Import main interface from original ui.py (until it's split)
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ui import create_interface
+from ui.interface import create_interface
+from ui.styles import CSS_STYLES, JAVASCRIPT_HEAD
 
 __all__ = [
     'create_interface',
@@ -39,5 +35,7 @@ __all__ = [
     'start_generation',
     'generate_image_with_progress',
     'finish_generation',
-    'interrupt_generation'
+    'interrupt_generation',
+    'CSS_STYLES',
+    'JAVASCRIPT_HEAD'
 ]
