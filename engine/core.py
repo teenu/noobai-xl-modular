@@ -5,7 +5,7 @@ import time
 import random
 import torch
 from PIL import Image, PngImagePlugin
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Callable
 from config import (
     logger, MODEL_CONFIG, DEFAULT_NEGATIVE_PROMPT, OPTIMAL_SETTINGS,
     OFFICIAL_RESOLUTIONS, RECOMMENDED_RESOLUTIONS,
@@ -228,7 +228,7 @@ class NoobAIEngine:
         dora_start_step: Optional[int] = None,
         dora_toggle_mode: Optional[str] = None,
         dora_manual_schedule: Optional[str] = None,
-        progress_callback: Optional[Any] = None
+        progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> Tuple[Image.Image, int, str]:
         if not self.is_initialized:
             raise EngineNotInitializedError("NoobAI engine is not initialized")

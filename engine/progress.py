@@ -3,9 +3,8 @@
 import time
 import threading
 from typing import Optional, Callable, List, Dict
-from config import logger
+from config import logger, GenerationInterruptedError
 from state import state_manager, GenerationState
-from config import GenerationInterruptedError
 from engine.memory import synchronize_device
 
 
