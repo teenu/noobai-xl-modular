@@ -1,5 +1,6 @@
 """Progress tracking and DoRA toggle management."""
 
+import os
 import time
 import threading
 from typing import Optional, Callable, List, Dict
@@ -48,7 +49,6 @@ class ProgressManager:
                     progress_callback(progress, desc)
                 except Exception as e:
                     logger.error(f"Progress callback error at step {current_step}: {e}", exc_info=True)
-                    import os
                     if os.environ.get('NOOBAI_CLI_MODE') == '1':
                         raise
                     try:

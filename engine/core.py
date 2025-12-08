@@ -9,6 +9,7 @@ from typing import Any, Optional, Tuple, Dict, Callable
 from config import (
     logger, MODEL_CONFIG, DEFAULT_NEGATIVE_PROMPT, OPTIMAL_SETTINGS,
     OFFICIAL_RESOLUTIONS, RECOMMENDED_RESOLUTIONS,
+    OPTIMAL_STEPS_RANGE, OPTIMAL_CFG_RANGE,
     EngineNotInitializedError, InvalidParameterError
 )
 from state import perf_monitor
@@ -82,8 +83,8 @@ class NoobAIEngine:
                 try:
                     if self._device in ["cuda", "mps"]:
                         clear_memory(self._device)
-                except Exception:
-                    pass
+                except Exception as cleanup_error:
+                    logger.debug(f"Memory cleanup during init failure: {cleanup_error}")
                 finally:
                     self.pipe = None
             logger.error(f"Failed to initialize engine: {e}")
@@ -310,10 +311,10 @@ class NoobAIEngine:
     def _build_generation_info(self, steps: int, cfg_scale: float, width: int, height: int) -> list:
         """Build informational messages about generation parameters."""
         info_parts = []
-        if not (32 <= steps <= 40):
-            info_parts.append(f"⚠️ Steps {steps} outside optimal range 32-40")
-        if not (3.5 <= cfg_scale <= 5.5):
-            info_parts.append(f"⚠️ CFG {cfg_scale} outside optimal range 3.5-5.5")
+        if not (OPTIMAL_STEPS_RANGE[0] <= steps <= OPTIMAL_STEPS_RANGE[1]):
+            info_parts.append(f"⚠️ Steps {steps} outside optimal range {OPTIMAL_STEPS_RANGE[0]}-{OPTIMAL_STEPS_RANGE[1]}")
+        if not (OPTIMAL_CFG_RANGE[0] <= cfg_scale <= OPTIMAL_CFG_RANGE[1]):
+            info_parts.append(f"⚠️ CFG {cfg_scale} outside optimal range {OPTIMAL_CFG_RANGE[0]}-{OPTIMAL_CFG_RANGE[1]}")
 
         current_res = (height, width)
         if current_res in RECOMMENDED_RESOLUTIONS:
@@ -385,22 +386,14 @@ class NoobAIEngine:
 
             try:
                 del self.pipe
-                self.pipe = None
             except Exception as e:
                 logger.warning(f"Error deleting pipeline: {e}")
 
         except Exception as e:
             logger.error(f"Error during engine teardown: {e}")
         finally:
-            try:
-                self.pipe = None
-            except Exception:
-                self.__dict__['pipe'] = None
-
-            try:
-                self.is_initialized = False
-            except Exception:
-                self.__dict__['is_initialized'] = False
+            self.pipe = None
+            self.is_initialized = False
 
     def clear_memory(self) -> None:
         """Clear GPU/memory caches."""

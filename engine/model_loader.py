@@ -57,8 +57,10 @@ def load_pipeline(model_path: str, device: str) -> tuple:
             vae = AutoencoderKL.from_pretrained(vae_path, torch_dtype=torch.float32)
             logger.info("VAE loaded as FP32 from directory for lossless decode")
         else:
-            logger.warning("VAE subdirectory not found, loading from parent directory")
-            vae = None
+            raise ValueError(
+                f"VAE subdirectory not found at {vae_path}. "
+                f"FP32 model directories must contain a 'vae' subdirectory."
+            )
 
         pipe = StableDiffusionXLPipeline.from_pretrained(model_path, vae=vae)
 

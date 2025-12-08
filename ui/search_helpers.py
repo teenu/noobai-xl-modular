@@ -3,12 +3,13 @@
 import gradio as gr
 from config import logger, SEARCH_CONFIG
 from prompt_formatter import get_prompt_data
+from utils import normalize_text
 
 
 def search_for_autocomplete(query: str, data_type: str) -> dict:
     """Handle autocomplete search."""
     try:
-        if not query or len(query.strip()) < SEARCH_CONFIG.MIN_QUERY_LENGTH:
+        if not query or not isinstance(query, str) or len(query.strip()) < SEARCH_CONFIG.MIN_QUERY_LENGTH:
             return gr.update(choices=[], value=None)
 
         results = get_prompt_data().search(query, data_type, limit=SEARCH_CONFIG.MAX_RESULTS)
@@ -52,5 +53,4 @@ def select_from_dropdown(search_query: str, selected_choice: str, data_type: str
 
 def compose_final_prompt(prefix: str, character: str, artist: str, custom: str) -> str:
     """Compose final prompt from components."""
-    from utils import normalize_text
     return ", ".join(filter(None, map(normalize_text, [prefix, character, artist, custom])))

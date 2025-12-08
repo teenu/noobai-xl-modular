@@ -56,8 +56,8 @@ class DoRAManager:
             logger.error(f"Failed to load DoRA adapter (runtime/validation error): {e}")
             try:
                 self.pipe.unload_lora_weights()
-            except Exception:
-                pass
+            except Exception as unload_error:
+                logger.debug(f"Could not unload LoRA weights during error recovery: {unload_error}")
             clear_memory(self.device)
             self.dora_loaded = False
             return False
@@ -65,8 +65,8 @@ class DoRAManager:
             logger.error(f"Unexpected error loading DoRA adapter: {e}")
             try:
                 self.pipe.unload_lora_weights()
-            except Exception:
-                pass
+            except Exception as unload_error:
+                logger.debug(f"Could not unload LoRA weights during error recovery: {unload_error}")
             clear_memory(self.device)
             self.dora_loaded = False
             return False

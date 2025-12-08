@@ -155,6 +155,10 @@ OPTIMAL_SETTINGS = {
     'dora_start_step': 1,
 }
 
+# Optimal parameter ranges for generation info warnings
+OPTIMAL_STEPS_RANGE = (32, 40)
+OPTIMAL_CFG_RANGE = (3.5, 5.5)
+
 # Default prompts
 DEFAULT_NEGATIVE_PROMPT = "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits"
 DEFAULT_POSITIVE_PREFIX = "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres"

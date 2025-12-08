@@ -25,6 +25,8 @@ def synchronize_device(device: str) -> None:
 
 def clear_memory(device: str) -> None:
     """Clear GPU/memory caches."""
+    if device not in ("cuda", "mps", "cpu"):
+        return
     try:
         synchronize_device(device)
         if device == "mps":
@@ -67,13 +69,13 @@ def teardown_pipeline(pipe, device: str, cpu_offload_enabled: bool, dora_loaded:
                 logger.debug(f"Could not free model hooks: {e}")
 
             try:
-                components_to_delete = ['unet', 'vae', 'text_encoder', 'text_encoder_2', 'scheduler']
+                components_to_delete = [
+                    'unet', 'vae', 'text_encoder', 'text_encoder_2',
+                    'scheduler', 'tokenizer', 'tokenizer_2', 'image_processor'
+                ]
                 for component_name in components_to_delete:
                     if hasattr(pipe, component_name):
-                        component = getattr(pipe, component_name)
-                        if component is not None:
-                            del component
-                            setattr(pipe, component_name, None)
+                        setattr(pipe, component_name, None)
             except Exception as e:
                 logger.warning(f"Error cleaning pipeline components: {e}")
 

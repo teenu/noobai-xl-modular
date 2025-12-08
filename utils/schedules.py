@@ -6,7 +6,7 @@ from config import logger
 
 def parse_manual_dora_schedule(schedule_input: Optional[str], num_steps: int) -> Tuple[Optional[List[int]], Optional[str]]:
     """Parse and validate manual DoRA schedule from CSV string."""
-    if not schedule_input or not schedule_input.strip():
+    if not schedule_input or not isinstance(schedule_input, str) or not schedule_input.strip():
         return None, None
 
     if len(schedule_input) > 10000:

@@ -2,6 +2,7 @@
 
 import gradio as gr
 from typing import Tuple
+from ui.search_helpers import search_for_autocomplete, select_from_dropdown
 
 
 def create_clear_handler(component_type: str):
@@ -112,8 +113,6 @@ def connect_search_events(
     clear_btn: gr.Button,
 ):
     """Connect event handlers for a search segment."""
-    from ui.search_helpers import search_for_autocomplete, select_from_dropdown
-
     search_box.change(
         lambda q: search_for_autocomplete(q, data_type),
         inputs=[search_box],

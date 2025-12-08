@@ -55,7 +55,7 @@ def _is_path_in_allowed_directory(path: str, allowed_dirs: Sequence[str]) -> Tup
                     return True, f"⚠️ File in temporary directory: {real_path}"
                 return True, None
 
-        except Exception:
+        except (ValueError, TypeError, OSError):
             continue
 
     return False, f"File must be in an allowed directory (current directory, home, Downloads, Documents, or Models)"

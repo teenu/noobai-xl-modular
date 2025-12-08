@@ -38,7 +38,7 @@ def parse_resolution_string(res_str: str) -> Tuple[int, int]:
     try:
         w, h = map(int, re.findall(r'\d+', res_str)[:2])
         return w, h
-    except Exception:
+    except (ValueError, TypeError, IndexError):
         return OPTIMAL_SETTINGS['width'], OPTIMAL_SETTINGS['height']
 
 
