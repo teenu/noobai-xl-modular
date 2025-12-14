@@ -43,6 +43,10 @@ pandas>=2.0.0,<3.0.0
 huggingface-hub>=0.20.0,<1.0.0
 numpy>=1.24.0,<2.0.0
 
+# Pydantic constraint for Gradio 4.x compatibility
+# pydantic 2.11+ causes "TypeError: argument of type 'bool' is not iterable" in gradio_client
+pydantic>=2.0.0,<2.11.0
+
 # ============================================================================
 # VERSION CONSTRAINTS
 # ============================================================================
@@ -52,6 +56,7 @@ numpy>=1.24.0,<2.0.0
 # - huggingface-hub<1.0.0: Breaking changes in 1.0
 # - numpy<2.0.0: ABI incompatibility with PyTorch <2.3.1
 # - gradio<5.0.0: Breaking changes (removed params, SSR mode, proxy issues)
+# - pydantic<2.11.0: Bug in gradio_client with pydantic 2.11+ causes TypeError
 #
 # To upgrade to newer versions, test thoroughly in a separate environment first.
 # ============================================================================
