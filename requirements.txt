@@ -13,35 +13,48 @@
 # ============================================================================
 
 # Core ML Framework
-torch>=2.0.0
+torch>=2.0.0,<3.0.0
 
 # Diffusion Models and Pipeline
-diffusers>=0.30.0
-transformers>=4.40.0
+diffusers>=0.30.0,<0.32.0
+transformers>=4.40.0,<5.0.0
 
 # CPU Offloading for Low-VRAM GPUs
 # Required for sequential CPU offloading (enables inference on 6GB GPUs)
-accelerate>=0.21.0
+accelerate>=0.21.0,<1.0.0
 
 # DoRA Adapter Support
 # Required for loading DoRA (Weight-Decomposed Low-Rank Adaptation) adapters
-peft>=0.12.0
+peft>=0.12.0,<1.0.0
 
 # Web Interface (Gradio 4.x has better compatibility than 3.x)
-gradio>=4.0.0
+gradio>=4.0.0,<5.0.0
 
 # Image Processing
-pillow>=10.0.0
+pillow>=10.0.0,<12.0.0
 
 # Model format optimization
-safetensors>=0.4.0
+safetensors>=0.4.0,<1.0.0
 
 # Data processing for CSV search functionality (character/artist autocomplete)
-pandas>=2.0.0
+pandas>=2.0.0,<3.0.0
 
 # Additional dependencies (auto-installed but specified for clarity)
-huggingface-hub>=0.20.0
-numpy>=1.24.0
+huggingface-hub>=0.20.0,<1.0.0
+numpy>=1.24.0,<2.0.0
+
+# ============================================================================
+# VERSION CONSTRAINTS
+# ============================================================================
+# Upper bounds prevent breaking changes from newer package versions:
+# - diffusers<0.32.0: VAE API changes in 0.32+
+# - accelerate<1.0.0: API restructuring in 1.0
+# - huggingface-hub<1.0.0: Breaking changes in 1.0
+# - numpy<2.0.0: ABI incompatibility with PyTorch <2.3.1
+# - gradio<5.0.0: Breaking changes (removed params, SSR mode, proxy issues)
+#
+# To upgrade to newer versions, test thoroughly in a separate environment first.
+# ============================================================================
 
 # ============================================================================
 # INSTALLATION INSTRUCTIONS
@@ -61,7 +74,7 @@ numpy>=1.24.0
 #
 # WINDOWS USERS: If you encounter "ModuleNotFoundError: No module named 'transformers.utils'"
 # after installation, this indicates a corrupted transformers installation. Fix with:
-#    pip uninstall transformers -y && pip install transformers>=4.40.0
+#    pip uninstall transformers -y && pip install "transformers>=4.40.0,<5.0.0"
 #
 # ============================================================================
 # TROUBLESHOOTING
@@ -88,7 +101,7 @@ numpy>=1.24.0
 # Corrupted Transformers Installation (Windows):
 #   If you see "ModuleNotFoundError: No module named 'transformers.utils'":
 #   - This is caused by pip cache corruption on Windows
-#   - Fix: pip uninstall transformers -y && pip install transformers>=4.40.0
+#   - Fix: pip uninstall transformers -y && pip install "transformers>=4.40.0,<5.0.0"
 #   - Alternative: pip cache purge && pip install -r requirements.txt
 #
 # ============================================================================
