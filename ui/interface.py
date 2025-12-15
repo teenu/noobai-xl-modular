@@ -8,9 +8,10 @@ from config import (
     OPTIMIZED_DORA_SETTINGS, OPTIMIZED_DORA_SCHEDULE_CSV
 )
 from ui.engine_manager import (
-    is_engine_ready, auto_initialize, get_dora_ui_state,
+    is_engine_ready, auto_initialize, get_dora_ui_state, get_embedding_ui_state,
     initialize_engine, get_engine_safely, get_adapter_choices
 )
+from engine.embedding_manager import discover_embeddings, get_embedding_ui_choices
 from ui.widgets import (
     create_search_ui, connect_search_events, create_clear_handler,
     create_status_updater
@@ -45,6 +46,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
     init_status, default_model_path, default_enable_dora, default_dora_path, default_adapter_selection = auto_initialize(model_path)
     is_ready = is_engine_ready()
     dora_ui_state = get_dora_ui_state()
+    embedding_ui_state = get_embedding_ui_state()
 
     resolution_options = [
         f"{w}x{h}{' (Optimal)' if (h, w) in RECOMMENDED_RESOLUTIONS else ''}"
@@ -88,6 +90,25 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                         label="Manual DoRA Path (Override)",
                         value=default_dora_path,
                         placeholder="Optional: Specify custom path to override adapter selection above"
+                    )
+
+                    # Embedding section
+                    with gr.Row():
+                        enable_embeddings = gr.Checkbox(
+                            label="📎 Enable Embeddings",
+                            value=embedding_ui_state['enable_embeddings_value'],
+                            interactive=embedding_ui_state['enable_embeddings_interactive'],
+                            info=embedding_ui_state['checkbox_info']
+                        )
+                        embedding_refresh_btn = gr.Button("🔄 Refresh Embeddings", size="sm")
+
+                    embedding_selection = gr.Dropdown(
+                        label="Embedding Selection",
+                        choices=embedding_ui_state['dropdown_choices'],
+                        value=embedding_ui_state['dropdown_value'],
+                        interactive=embedding_ui_state['dropdown_interactive'],
+                        multiselect=True,
+                        info=embedding_ui_state['info_message']
                     )
 
                     with gr.Row():
@@ -319,6 +340,23 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                 )
             )
 
+        def refresh_embeddings():
+            """Refresh embeddings and update UI."""
+            embedding_ui_state = get_embedding_ui_state()
+            return (
+                gr.update(
+                    interactive=embedding_ui_state['enable_embeddings_interactive'],
+                    value=embedding_ui_state['enable_embeddings_value'],
+                    info=embedding_ui_state['checkbox_info']
+                ),
+                gr.update(
+                    choices=embedding_ui_state['dropdown_choices'],
+                    value=[],
+                    interactive=embedding_ui_state['dropdown_interactive'],
+                    info=embedding_ui_state['info_message'] + " (Re-initialize engine to load)"
+                )
+            )
+
         # Component lists
         all_prompt_inputs = [prefix_text, character_text, artist_text, custom_text]
         gen_inputs = [
@@ -329,7 +367,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
         ]
         gen_outputs = [output_image, generation_info, seed]
 
-        def init_and_update(path, enable_dora_val, dora_path_val, dora_selection_val):
+        def init_and_update(path, enable_dora_val, dora_path_val, dora_selection_val, enable_emb_val, emb_selection_val):
             """Initialize engine with UI feedback."""
             if get_engine_safely() is not None:
                 teardown_status = "🔄 Performing comprehensive engine teardown..."
@@ -340,7 +378,10 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                     gr.update(elem_classes=["status-warning"])
                 )
 
-            status = initialize_engine(path, enable_dora_val, dora_path_val, dora_selection_val)
+            # Prepare embedding selections (only if enabled)
+            embedding_selections = emb_selection_val if enable_emb_val and emb_selection_val else None
+
+            status = initialize_engine(path, enable_dora_val, dora_path_val, dora_selection_val, embedding_selections)
             ready = is_engine_ready()
 
             yield (
@@ -353,11 +394,12 @@ def create_interface(model_path: str = None) -> gr.Blocks:
         # Wire up event handlers
         init_btn.click(
             init_and_update,
-            inputs=[model_path_input, enable_dora, dora_path, dora_selection],
+            inputs=[model_path_input, enable_dora, dora_path, dora_selection, enable_embeddings, embedding_selection],
             outputs=[init_status_display, status_indicator, generate_btn, init_status_display]
         )
 
         dora_refresh_btn.click(refresh_dora_adapters, outputs=[enable_dora, dora_selection])
+        embedding_refresh_btn.click(refresh_embeddings, outputs=[enable_embeddings, embedding_selection])
 
         # DoRA UI updates - also reset toggle mode and hide grid when disabling
         def update_dora_ui(enable_val):

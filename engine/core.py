@@ -5,7 +5,7 @@ import time
 import random
 import torch
 from PIL import Image, PngImagePlugin
-from typing import Any, Optional, Tuple, Dict, Callable
+from typing import Any, Optional, Tuple, Dict, Callable, List
 from config import (
     logger, MODEL_CONFIG, DEFAULT_NEGATIVE_PROMPT, OPTIMAL_SETTINGS,
     OFFICIAL_RESOLUTIONS, RECOMMENDED_RESOLUTIONS,
@@ -16,6 +16,7 @@ from state import perf_monitor
 from utils import parse_manual_dora_schedule
 from engine.model_loader import detect_device, load_pipeline
 from engine.dora_manager import DoRAManager
+from engine.embedding_manager import EmbeddingManager
 from engine.progress import ProgressManager
 from engine.memory import clear_memory, teardown_pipeline
 
@@ -53,6 +54,7 @@ class NoobAIEngine:
         self._device = None
         self._cpu_offload_enabled = False
         self._dora_manager = None
+        self._embedding_manager = None
         self._progress_manager = None
         self._initialize(dora_path)
 
@@ -70,6 +72,7 @@ class NoobAIEngine:
                 logger.info("Engine initialized")
 
                 self._dora_manager = DoRAManager(self.pipe, self._device)
+                self._embedding_manager = EmbeddingManager(self.pipe)
                 self._progress_manager = ProgressManager(self.pipe, self._device, self._dora_manager)
 
                 if self.enable_dora:
@@ -151,6 +154,55 @@ class NoobAIEngine:
             'strength': self.adapter_strength if self.dora_loaded else 0.0,
             'start_step': self.dora_start_step
         }
+
+    # =========================================================================
+    # Embedding Methods
+    # =========================================================================
+
+    def load_embedding(self, embedding_path: str, token: Optional[str] = None) -> bool:
+        """Load a textual inversion embedding.
+
+        Args:
+            embedding_path: Path to the .safetensors embedding file
+            token: Optional custom trigger token
+
+        Returns:
+            True if loading succeeded
+        """
+        if self._embedding_manager:
+            return self._embedding_manager.load_embedding(embedding_path, token)
+        return False
+
+    def load_embeddings(self, embedding_paths: List[str]) -> int:
+        """Load multiple embeddings.
+
+        Args:
+            embedding_paths: List of paths to embedding files
+
+        Returns:
+            Number of successfully loaded embeddings
+        """
+        if self._embedding_manager:
+            return self._embedding_manager.load_embeddings(embedding_paths)
+        return 0
+
+    def has_quality_embedding(self, prompt: str) -> bool:
+        """Check if prompt contains a loaded quality embedding trigger."""
+        if self._embedding_manager:
+            return self._embedding_manager.has_quality_embedding(prompt)
+        return False
+
+    def has_negative_embedding(self, prompt: str) -> bool:
+        """Check if prompt contains a loaded negative embedding trigger."""
+        if self._embedding_manager:
+            return self._embedding_manager.has_negative_embedding(prompt)
+        return False
+
+    def get_embedding_info(self) -> Dict[str, Any]:
+        """Get information about loaded embeddings."""
+        if self._embedding_manager:
+            return self._embedding_manager.get_embedding_info()
+        return {'loaded_count': 0, 'tokens': [], 'paths': []}
 
     def save_image_standardized(self, image: Image.Image, output_path: str, include_metadata: bool = True) -> str:
         """Save image with standardized settings for consistent hashing."""
@@ -330,6 +382,13 @@ class NoobAIEngine:
     def _add_dora_info_to_result(self, info_parts: list, dora_toggle_mode: Optional[str], seed: int) -> None:
         info_parts.append(f"🌱 Generated with seed: {seed}")
 
+        # Add embedding info
+        if self._embedding_manager:
+            embedding_info = self._embedding_manager.get_embedding_info()
+            if embedding_info['loaded_count'] > 0:
+                tokens = ", ".join(embedding_info['tokens'])
+                info_parts.append(f"📎 Embeddings: {tokens}")
+
         if self._dora_manager.dora_loaded:
             dora_name = os.path.basename(self._dora_manager.dora_path) if self._dora_manager.dora_path else "DoRA"
             if self.enable_dora:
@@ -360,6 +419,12 @@ class NoobAIEngine:
             "model": "NoobAI-XL-Vpred-v1.0",
             "scheduler": "EulerDiscreteScheduler"
         }
+
+        # Add embedding info to metadata
+        if self._embedding_manager:
+            embedding_info = self._embedding_manager.get_embedding_info()
+            if embedding_info['loaded_count'] > 0:
+                metadata["embeddings"] = ", ".join(embedding_info['tokens'])
 
         if self._dora_manager.dora_loaded:
             metadata["dora_enabled"] = str(self.enable_dora).lower()

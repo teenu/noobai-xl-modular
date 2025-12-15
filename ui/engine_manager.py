@@ -11,6 +11,7 @@ from utils import (
     get_dora_adapter_by_name, detect_adapter_precision, find_dora_path,
     format_file_size, get_user_friendly_error
 )
+from engine.embedding_manager import discover_embeddings, get_embedding_ui_choices, get_embedding_path_from_selection
 from engine import NoobAIEngine
 
 engine: Optional[NoobAIEngine] = None
@@ -82,6 +83,25 @@ def get_dora_ui_state() -> dict:
     }
 
 
+def get_embedding_ui_state() -> dict:
+    """Get embedding UI state based on embedding availability."""
+    embeddings = discover_embeddings()
+    has_embeddings = len(embeddings) > 0
+
+    choices, _ = get_embedding_ui_choices()
+
+    return {
+        'enable_embeddings_interactive': has_embeddings,
+        'enable_embeddings_value': has_embeddings,
+        'dropdown_choices': choices,
+        'dropdown_value': "None (no embedding)",
+        'dropdown_interactive': has_embeddings,
+        'has_embeddings': has_embeddings,
+        'info_message': "Select embeddings from /embeddings directory" if has_embeddings else "No embeddings found in /embeddings directory",
+        'checkbox_info': "Load textual inversion embeddings" if has_embeddings else "No embeddings available - install .safetensors embeddings in /embeddings directory"
+    }
+
+
 def auto_initialize(preferred_model_path: str = None) -> Tuple[str, str, bool, str, str]:
     """Auto-initialize with DoRA defaults."""
     model_path = preferred_model_path if preferred_model_path else find_model_path()
@@ -99,8 +119,16 @@ def auto_initialize(preferred_model_path: str = None) -> Tuple[str, str, bool, s
             enable_dora, "", default_adapter)
 
 
-def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "") -> str:
-    """Initialize the engine."""
+def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "", embedding_selections: List[str] = None) -> str:
+    """Initialize the engine.
+
+    Args:
+        model_path: Path to the model file
+        enable_dora: Whether to enable DoRA adapter
+        dora_path: Manual DoRA path override
+        dora_selection: DoRA selection from dropdown
+        embedding_selections: List of embedding selections to load
+    """
     global engine
 
     with _engine_lock:
@@ -166,6 +194,20 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                 dora_start_step=OPTIMAL_SETTINGS['dora_start_step']
             )
 
+            # Load embeddings if specified
+            embedding_status = ""
+            if embedding_selections:
+                loaded_embeddings = []
+                for selection in embedding_selections:
+                    if selection and selection not in ["None (no embedding)", "No embeddings found"]:
+                        embedding_path = get_embedding_path_from_selection(selection)
+                        if embedding_path and engine.load_embedding(embedding_path):
+                            # Get just the name from the selection
+                            name = selection.split(" (")[0] if " (" in selection else selection
+                            loaded_embeddings.append(name)
+                if loaded_embeddings:
+                    embedding_status = f"\n📎 Embeddings: {', '.join(loaded_embeddings)}"
+
             if os.path.isdir(validated_model_path):
                 model_size = sum(
                     os.path.getsize(os.path.join(dirpath, filename))
@@ -175,7 +217,7 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
             else:
                 model_size = os.path.getsize(validated_model_path)
 
-            status_msg = f"✅ Engine initialized!\n📊 Model: {format_file_size(model_size)}{dora_status}"
+            status_msg = f"✅ Engine initialized!\n📊 Model: {format_file_size(model_size)}{dora_status}{embedding_status}"
 
             return status_msg
 

@@ -5,7 +5,7 @@ import json
 import struct
 import torch
 from typing import Tuple, Optional, Sequence, Dict
-from config import logger, MODEL_CONFIG, DTYPE_MAP
+from config import logger, MODEL_CONFIG, EMBEDDING_CONFIG, DTYPE_MAP
 from utils.formatting import format_file_size
 
 
@@ -194,6 +194,57 @@ def validate_dora_path(path: str) -> Tuple[bool, str]:
         min_size_mb=MODEL_CONFIG.DORA_MIN_FILE_SIZE_MB,
         max_size_mb=MODEL_CONFIG.DORA_MAX_FILE_SIZE_MB
     )
+
+
+def validate_embedding_path(path: str) -> Tuple[bool, str]:
+    """Validate textual inversion embedding path.
+
+    Embeddings are small safetensors files (typically < 1MB) containing
+    pre-computed CLIP text encoder embeddings.
+
+    Args:
+        path: Path to the embedding file
+
+    Returns:
+        Tuple of (is_valid, error_message_or_path)
+    """
+    if not path.strip():
+        return False, "Please provide an embedding path"
+
+    try:
+        normalized_path = os.path.normpath(os.path.abspath(path))
+
+        if not os.path.exists(normalized_path):
+            return False, f"Embedding file not found: {normalized_path}"
+
+        if not os.path.isfile(normalized_path):
+            return False, "Path must point to a file, not a directory"
+
+        if not normalized_path.lower().endswith('.safetensors'):
+            return False, "Embedding file must be a .safetensors file"
+
+        file_size = os.path.getsize(normalized_path)
+        min_size_bytes = EMBEDDING_CONFIG.MIN_FILE_SIZE_KB * 1024
+        max_size_bytes = EMBEDDING_CONFIG.MAX_FILE_SIZE_MB * 1024 * 1024
+
+        if file_size < min_size_bytes:
+            return False, f"File too small ({file_size / 1024:.1f} KB). Expected > {EMBEDDING_CONFIG.MIN_FILE_SIZE_KB} KB"
+
+        if file_size > max_size_bytes:
+            return False, f"File too large ({file_size / 1024 / 1024:.1f} MB). Expected < {EMBEDDING_CONFIG.MAX_FILE_SIZE_MB} MB"
+
+        allowed_dirs = _get_allowed_directories()
+        is_allowed, reason = _is_path_in_allowed_directory(normalized_path, allowed_dirs)
+
+        if not is_allowed:
+            return False, f"Security: {reason}"
+
+        return True, normalized_path
+
+    except (IOError, OSError) as e:
+        return False, f"Path access error: {str(e)}"
+    except Exception as e:
+        return False, f"Unexpected error validating path: {str(e)}"
 
 
 def get_safe_csv_paths() -> Dict[str, str]:

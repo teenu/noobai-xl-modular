@@ -65,6 +65,13 @@ class GenerationConfig:
     MAX_RESCALE_CFG: float = 1.0
 
 @dataclass
+class EmbeddingConfig:
+    """Textual inversion embedding configuration constants."""
+    MIN_FILE_SIZE_KB: int = 1
+    MAX_FILE_SIZE_MB: int = 10
+    SUPPORTED_FORMATS: Tuple[str, ...] = ('.safetensors',)
+
+@dataclass
 class SearchConfig:
     """Search configuration constants."""
     MIN_QUERY_LENGTH: int = 2
@@ -82,6 +89,7 @@ class SearchScoring:
 # Create configuration instances
 MODEL_CONFIG = ModelConfig()
 GEN_CONFIG = GenerationConfig()
+EMBEDDING_CONFIG = EmbeddingConfig()
 SEARCH_CONFIG = SearchConfig()
 
 # Output directory for generated images
@@ -208,3 +216,19 @@ DORA_SEARCH_DIRECTORIES = [
     _script_dir,
     os.path.join(os.path.expanduser("~"), "Downloads", "dora")
 ]
+
+# ============================================================================
+# EMBEDDING CONFIGURATION
+# ============================================================================
+
+# Embedding search directories
+EMBEDDING_SEARCH_DIRECTORIES = [
+    os.path.join(_script_dir, "embeddings"),
+    _script_dir,
+    os.path.join(os.path.expanduser("~"), "Downloads", "embeddings")
+]
+
+# Known embedding trigger words that replace default prompts
+# When these triggers are detected in prompts, default prefixes are NOT prepended
+QUALITY_EMBEDDING_TRIGGERS = ["SmoothNoob_Quality"]
+NEGATIVE_EMBEDDING_TRIGGERS = ["SmoothNoob_Negative"]
