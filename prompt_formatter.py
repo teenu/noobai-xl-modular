@@ -206,8 +206,10 @@ class IndexedPromptFormatterData:
                         }
 
                         # Add value based on type and source
-                        if data_type == 'character' and source == 'danbooru' and item['core_tags']:
-                            result['value'] = f"{item['core_tags']}, {item['trigger']}"
+                        # Filter out NaN values from CSV
+                        core_tags = item.get('core_tags', '')
+                        if data_type == 'character' and source == 'danbooru' and core_tags and str(core_tags).lower() != 'nan':
+                            result['value'] = f"{core_tags}, {item['trigger']}"
                         else:
                             result['value'] = item['trigger']
 
@@ -233,8 +235,10 @@ class IndexedPromptFormatterData:
                                 'score': score
                             }
 
-                            if data_type == 'character' and source == 'danbooru' and item['core_tags']:
-                                result['value'] = f"{item['core_tags']}, {item['trigger']}"
+                            # Filter out NaN values from CSV
+                            core_tags = item.get('core_tags', '')
+                            if data_type == 'character' and source == 'danbooru' and core_tags and str(core_tags).lower() != 'nan':
+                                result['value'] = f"{core_tags}, {item['trigger']}"
                             else:
                                 result['value'] = item['trigger']
 
