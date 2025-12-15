@@ -15,7 +15,7 @@ from ui.widgets import (
     create_search_ui, connect_search_events, create_clear_handler,
     create_status_updater
 )
-from ui.search_helpers import compose_final_prompt
+from ui.search_helpers import compose_final_prompt, get_random_value
 from ui.generation import (
     start_generation, generate_image_with_progress,
     finish_generation, interrupt_generation
@@ -116,11 +116,11 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                                 prefix_reset_btn = gr.Button("🔄 Reset", size="sm")
 
                         with gr.Column(scale=1):
-                            character_search, character_dropdown, character_text, character_clear_btn = create_search_ui("Character", 2)
+                            character_search, character_dropdown, character_text, character_clear_btn, character_randomize_btn, character_source_filter = create_search_ui("Character", 2)
 
                     with gr.Row():
                         with gr.Column(scale=1):
-                            artist_search, artist_dropdown, artist_text, artist_clear_btn = create_search_ui("Artist", 3)
+                            artist_search, artist_dropdown, artist_text, artist_clear_btn, artist_randomize_btn, artist_source_filter = create_search_ui("Artist", 3)
 
                         with gr.Column(scale=1):
                             with gr.Group(elem_classes=["segment-container"]):
@@ -133,6 +133,7 @@ def create_interface(model_path: str = None) -> gr.Blocks:
                         final_prompt = gr.Textbox(label="Positive Prompt", lines=4)
                         with gr.Row():
                             compose_btn = gr.Button("🔄 Compose", variant="primary")
+                            randomize_all_btn = gr.Button("🎲 Randomize All", variant="secondary")
                             clear_all_btn = gr.Button("🧹 Clear All", variant="secondary")
 
                 # Negative prompt
@@ -452,8 +453,21 @@ def create_interface(model_path: str = None) -> gr.Blocks:
         clear_all_btn.click(clear_all_prompts, outputs=[prefix_text, character_text, artist_text, custom_text, final_prompt])
 
         # Connect search events
-        connect_search_events('character', character_search, character_dropdown, character_text, character_clear_btn)
-        connect_search_events('artist', artist_search, artist_dropdown, artist_text, artist_clear_btn)
+        connect_search_events('character', character_search, character_dropdown, character_text, character_clear_btn, character_randomize_btn, character_source_filter)
+        connect_search_events('artist', artist_search, artist_dropdown, artist_text, artist_clear_btn, artist_randomize_btn, artist_source_filter)
+
+        # Randomize All button handler
+        def randomize_all(char_filter, artist_filter):
+            """Randomize both character and artist simultaneously."""
+            char_value = get_random_value('character', char_filter if char_filter != 'all' else None)
+            artist_value = get_random_value('artist', artist_filter if artist_filter != 'all' else None)
+            return char_value, artist_value
+
+        randomize_all_btn.click(
+            randomize_all,
+            inputs=[character_source_filter, artist_source_filter],
+            outputs=[character_text, artist_text]
+        )
 
         # Generation
         generate_btn.click(start_generation, outputs=[interrupt_btn, generate_btn]).then(

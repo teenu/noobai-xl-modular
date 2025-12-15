@@ -54,3 +54,62 @@ def select_from_dropdown(search_query: str, selected_choice: str, data_type: str
 def compose_final_prompt(prefix: str, character: str, artist: str, custom: str) -> str:
     """Compose final prompt from components."""
     return ", ".join(filter(None, map(normalize_text, [prefix, character, artist, custom])))
+
+
+def get_random_value(data_type: str, source_filter: str = None) -> str:
+    """
+    Get a random value for the text output field.
+
+    Args:
+        data_type: 'character' or 'artist'
+        source_filter: None, 'danbooru', or 'e621'
+
+    Returns:
+        Formatted value string for text_output, or empty string if no data
+    """
+    try:
+        data = get_prompt_data()
+        if not data.is_loaded:
+            return ""
+
+        result = data.get_random_entry(data_type, source_filter)
+        if result:
+            return result['value']
+        return ""
+
+    except Exception as e:
+        logger.error(f"Error getting random {data_type}: {e}")
+        return ""
+
+
+def search_for_autocomplete_filtered(query: str, data_type: str, source_filter: str = None) -> dict:
+    """
+    Handle autocomplete search with optional source filtering.
+
+    Args:
+        query: Search query string
+        data_type: 'character' or 'artist'
+        source_filter: None (all), 'danbooru', or 'e621'
+
+    Returns:
+        gr.update for dropdown choices
+    """
+    try:
+        if not query or not isinstance(query, str) or len(query.strip()) < SEARCH_CONFIG.MIN_QUERY_LENGTH:
+            return gr.update(choices=[], value=None)
+
+        results = get_prompt_data().search(query, data_type, limit=SEARCH_CONFIG.MAX_RESULTS)
+
+        # Apply source filter if specified
+        if source_filter in ['danbooru', 'e621']:
+            results = [r for r in results if r['source'] == source_filter]
+
+        choices = [f"{'🔴' if r['source'] == 'danbooru' else '🔵'} {r['display']}" for r in results]
+        return gr.update(choices=choices, value=choices[0] if choices else None)
+
+    except (AttributeError, KeyError, ValueError) as e:
+        logger.error(f"Error in filtered {data_type} search (data error): {e}")
+        return gr.update(choices=[], value=None)
+    except Exception as e:
+        logger.error(f"Unexpected error in filtered {data_type} search: {e}")
+        return gr.update(choices=[], value=None)

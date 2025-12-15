@@ -6,6 +6,7 @@ searching character and artist data from CSV files.
 """
 
 import csv
+import random
 import threading
 from typing import List, Dict, Optional
 from config import logger, PANDAS_AVAILABLE, SEARCH_CONFIG, SearchScoring
@@ -262,6 +263,69 @@ class IndexedPromptFormatterData:
 
             # Remove score from final results
             return [{k: v for k, v in r.items() if k != 'score'} for r in final_results]
+
+    def get_random_entry(self, data_type: str, source_filter: str = None) -> Optional[Dict]:
+        """
+        Get a random entry with 50/50 source balancing.
+
+        Args:
+            data_type: 'character' or 'artist'
+            source_filter: None (balanced), 'danbooru', or 'e621'
+
+        Returns:
+            Dict with 'display', 'source', 'value' keys, or None if no data
+        """
+        if not self.is_loaded:
+            return None
+
+        # Select data based on type
+        if data_type == 'character':
+            data = self.character_data
+        elif data_type == 'artist':
+            data = self.artist_data
+        else:
+            return None
+
+        # Determine which source to use
+        if source_filter in ['danbooru', 'e621']:
+            source = source_filter
+        else:
+            # 50/50 balanced selection - randomly pick source first
+            available_sources = [s for s in ['danbooru', 'e621'] if data[s]]
+            if not available_sources:
+                return None
+            source = random.choice(available_sources)
+
+        entries = data[source]
+
+        if not entries:
+            # Fallback to other source if selected is empty
+            other_source = 'e621' if source == 'danbooru' else 'danbooru'
+            entries = data[other_source]
+            source = other_source
+
+        if not entries:
+            return None
+
+        # Select random entry
+        item = random.choice(entries)
+
+        # Format the value (same logic as search results)
+        core_tags = item.get('core_tags', '')
+        # Filter out NaN values from CSV
+        if core_tags and str(core_tags).lower() != 'nan':
+            if data_type == 'character' and source == 'danbooru':
+                value = f"{core_tags}, {item['trigger']}"
+            else:
+                value = item['trigger']
+        else:
+            value = item['trigger']
+
+        return {
+            'display': item['trigger'],
+            'source': source,
+            'value': value
+        }
 
 # Create global instance with thread-safe lazy initialization
 prompt_formatter_data: Optional[IndexedPromptFormatterData] = None

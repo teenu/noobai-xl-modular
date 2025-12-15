@@ -1,8 +1,8 @@
 """UI widget factories and status updaters."""
 
 import gradio as gr
-from typing import Tuple
-from ui.search_helpers import search_for_autocomplete, select_from_dropdown
+from typing import Tuple, Optional
+from ui.search_helpers import search_for_autocomplete, select_from_dropdown, get_random_value, search_for_autocomplete_filtered
 
 
 def create_clear_handler(component_type: str):
@@ -94,15 +94,33 @@ def create_status_updater(param_type: str):
     return updaters.get(param_type, lambda x: "")
 
 
-def create_search_ui(label: str, number: int) -> Tuple[gr.Textbox, gr.Dropdown, gr.Textbox, gr.Button]:
-    """Create the UI for a search segment."""
+def create_search_ui(label: str, number: int) -> Tuple[gr.Textbox, gr.Dropdown, gr.Textbox, gr.Button, gr.Button, gr.Radio]:
+    """
+    Create the UI for a search segment with randomize functionality.
+
+    Returns:
+        Tuple of (search_box, dropdown, text_output, clear_btn, randomize_btn, source_filter)
+    """
     with gr.Group(elem_classes=["segment-container"]):
         gr.HTML(f'<div class="segment-header">{number}️⃣ {label}</div>')
+
+        # Source filter toggle
+        source_filter = gr.Radio(
+            choices=[("All", "all"), ("Danbooru", "danbooru"), ("E621", "e621")],
+            value="all",
+            label="Source Filter",
+            info="Filter search and randomize by source"
+        )
+
         search_box = gr.Textbox(placeholder=f"Search {label.lower()}s...", lines=1)
         dropdown = gr.Dropdown(choices=[], interactive=True, allow_custom_value=True)
         text_output = gr.Textbox(lines=2, interactive=False)
-        clear_btn = gr.Button("🧹 Clear", size="sm")
-    return search_box, dropdown, text_output, clear_btn
+
+        with gr.Row():
+            randomize_btn = gr.Button("🎲 Randomize", size="sm")
+            clear_btn = gr.Button("🧹 Clear", size="sm")
+
+    return search_box, dropdown, text_output, clear_btn, randomize_btn, source_filter
 
 
 def connect_search_events(
@@ -111,22 +129,52 @@ def connect_search_events(
     dropdown: gr.Dropdown,
     text_output: gr.Textbox,
     clear_btn: gr.Button,
+    randomize_btn: Optional[gr.Button] = None,
+    source_filter: Optional[gr.Radio] = None,
 ):
     """Connect event handlers for a search segment."""
-    search_box.change(
-        lambda q: search_for_autocomplete(q, data_type),
-        inputs=[search_box],
-        outputs=[dropdown],
-        show_progress=False,
-    )
+    # Search with source filter support
+    if source_filter is not None:
+        search_box.change(
+            lambda q, sf: search_for_autocomplete_filtered(q, data_type, sf if sf != 'all' else None),
+            inputs=[search_box, source_filter],
+            outputs=[dropdown],
+            show_progress=False,
+        )
+
+        # Re-search when filter changes
+        source_filter.change(
+            lambda q, sf: search_for_autocomplete_filtered(q, data_type, sf if sf != 'all' else None),
+            inputs=[search_box, source_filter],
+            outputs=[dropdown],
+            show_progress=False,
+        )
+    else:
+        search_box.change(
+            lambda q: search_for_autocomplete(q, data_type),
+            inputs=[search_box],
+            outputs=[dropdown],
+            show_progress=False,
+        )
+
     dropdown.change(
         lambda q, c: select_from_dropdown(q, c, data_type),
         inputs=[search_box, dropdown],
         outputs=[text_output],
         show_progress=False,
     )
+
     clear_btn.click(
         create_clear_handler(data_type),
         outputs=[search_box, text_output, dropdown],
         show_progress=False,
     )
+
+    # Randomize button handler
+    if randomize_btn is not None and source_filter is not None:
+        randomize_btn.click(
+            lambda sf: get_random_value(data_type, sf if sf != 'all' else None),
+            inputs=[source_filter],
+            outputs=[text_output],
+            show_progress=False,
+        )
