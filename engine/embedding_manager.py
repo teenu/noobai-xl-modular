@@ -149,6 +149,16 @@ class EmbeddingManager:
             # Get the device to use for temporary operations
             device = torch.device("cpu")
 
+            # Capture original device placement and hook state before mutating
+            original_devices = (
+                str(getattr(text_encoder, "device", "cpu")),
+                str(getattr(text_encoder_2, "device", "cpu"))
+            )
+            had_hooks = (
+                hasattr(text_encoder, '_hf_hook'),
+                hasattr(text_encoder_2, '_hf_hook')
+            )
+
             # Move text encoders to CPU temporarily to materialize weights
             logger.debug("Moving text encoders to CPU for embedding injection")
 
@@ -190,9 +200,29 @@ class EmbeddingManager:
                         device=device
                     )
 
-            # Re-enable CPU offloading by moving back to meta and re-applying hooks
-            # The pipeline's enable_sequential_cpu_offload should be called again
-            # but that's complex - instead, just leave on CPU and let the pipeline handle it
+            # Restore the previous offload state and hooks
+            if any(had_hooks):
+                logger.debug("Re-enabling sequential CPU offload after embedding injection")
+                try:
+                    self.pipe.enable_sequential_cpu_offload()
+                except Exception as hook_error:
+                    logger.warning(f"Failed to re-enable CPU offload hooks automatically: {hook_error}")
+
+                # Ensure encoders return to their original device placement (meta or CUDA)
+                try:
+                    if hasattr(text_encoder, 'to') and str(getattr(text_encoder, 'device', 'cpu')) != original_devices[0]:
+                        text_encoder.to(torch.device(original_devices[0]))
+                    if hasattr(text_encoder_2, 'to') and str(getattr(text_encoder_2, 'device', 'cpu')) != original_devices[1]:
+                        text_encoder_2.to(torch.device(original_devices[1]))
+                except Exception as device_error:
+                    logger.debug(f"Could not fully restore text encoder devices: {device_error}")
+
+                logger.info(
+                    "CPU offload hook restoration: encoder1 hook=%s device=%s, encoder2 hook=%s device=%s",
+                    hasattr(text_encoder, '_hf_hook'), str(getattr(text_encoder, 'device', 'unknown')),
+                    hasattr(text_encoder_2, '_hf_hook'), str(getattr(text_encoder_2, 'device', 'unknown')),
+                )
+
             logger.info(f"Successfully loaded SDXL embedding '{token}' ({num_tokens} tokens) with CPU offload handling")
             return True
 
