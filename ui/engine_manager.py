@@ -86,8 +86,14 @@ def get_dora_ui_state() -> dict:
     }
 
 
-def auto_initialize(preferred_model_path: str = None, force_fp32: bool = False) -> Tuple[str, str, bool, str, str]:
-    """Auto-initialize with DoRA defaults."""
+def auto_initialize(preferred_model_path: str = None, force_fp32: bool = False, optimize: bool = False) -> Tuple[str, str, bool, str, str]:
+    """Auto-initialize with DoRA defaults.
+
+    Args:
+        preferred_model_path: Preferred path to model file or directory
+        force_fp32: Force FP32 inference for parity mode
+        optimize: Enable TF32 + torch.compile for faster inference
+    """
     model_path = preferred_model_path if preferred_model_path else find_model_path()
 
     dora_ui_state = get_dora_ui_state()
@@ -95,7 +101,7 @@ def auto_initialize(preferred_model_path: str = None, force_fp32: bool = False) 
     default_adapter = dora_ui_state['dropdown_value']
 
     if model_path:
-        status = initialize_engine(model_path, enable_dora=enable_dora, dora_selection=default_adapter, force_fp32=force_fp32)
+        status = initialize_engine(model_path, enable_dora=enable_dora, dora_selection=default_adapter, force_fp32=force_fp32, optimize=optimize)
         return status, model_path, enable_dora, "", default_adapter
 
     return ("⚠️ No model found. Please specify path manually.",
@@ -103,7 +109,7 @@ def auto_initialize(preferred_model_path: str = None, force_fp32: bool = False) 
             enable_dora, "", default_adapter)
 
 
-def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "", force_fp32: bool = False) -> str:
+def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str = "", dora_selection: str = "", force_fp32: bool = False, optimize: bool = False) -> str:
     """Initialize the engine.
 
     Args:
@@ -112,6 +118,7 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
         dora_path: Path to DoRA adapter file
         dora_selection: Name of DoRA adapter to use
         force_fp32: Force FP32 inference for parity mode
+        optimize: Enable TF32 + torch.compile for faster inference
     """
     global engine
 
@@ -176,7 +183,8 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                 enable_dora=enable_dora,
                 dora_path=dora_path_to_use,
                 dora_start_step=OPTIMAL_SETTINGS['dora_start_step'],
-                force_fp32=force_fp32
+                force_fp32=force_fp32,
+                optimize=optimize
             )
 
             if os.path.isdir(validated_model_path):
@@ -189,7 +197,8 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                 model_size = os.path.getsize(validated_model_path)
 
             precision_info = " [FP32 Parity Mode]" if force_fp32 else ""
-            status_msg = f"✅ Engine initialized!{precision_info}\n📊 Model: {format_file_size(model_size)}{dora_status}"
+            optimize_info = " [Performance Mode: TF32 + torch.compile]" if optimize else ""
+            status_msg = f"✅ Engine initialized!{precision_info}{optimize_info}\n📊 Model: {format_file_size(model_size)}{dora_status}"
 
             return status_msg
 

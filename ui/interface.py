@@ -40,14 +40,15 @@ def generate_dora_grid(num_steps: int, schedule_csv: str = "") -> str:
     return grid_html
 
 
-def create_interface(model_path: str = None, force_fp32: bool = False) -> gr.Blocks:
+def create_interface(model_path: str = None, force_fp32: bool = False, optimize: bool = False) -> gr.Blocks:
     """Create the Gradio interface.
 
     Args:
         model_path: Optional path to model file or directory
         force_fp32: Force FP32 inference for parity mode
+        optimize: Enable TF32 + torch.compile for faster inference
     """
-    init_status, default_model_path, default_enable_dora, default_dora_path, default_adapter_selection = auto_initialize(model_path, force_fp32=force_fp32)
+    init_status, default_model_path, default_enable_dora, default_dora_path, default_adapter_selection = auto_initialize(model_path, force_fp32=force_fp32, optimize=optimize)
     is_ready = is_engine_ready()
     dora_ui_state = get_dora_ui_state()
 
@@ -346,7 +347,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False) -> gr.Blo
                     gr.update(elem_classes=["status-warning"])
                 )
 
-            status = initialize_engine(path, enable_dora_val, dora_path_val, dora_selection_val, force_fp32=force_fp32)
+            status = initialize_engine(path, enable_dora_val, dora_path_val, dora_selection_val, force_fp32=force_fp32, optimize=optimize)
             ready = is_engine_ready()
 
             yield (

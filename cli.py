@@ -237,7 +237,9 @@ def parse_args():
     %(prog)s --cli --prompt "test" --force-fp32  # CLI with FP32 parity
 
   Performance Mode:
-    %(prog)s --cli --prompt "test" --optimize    # ~2x faster with TF32 + torch.compile
+    %(prog)s --optimize                          # GUI with TF32 + torch.compile
+    %(prog)s --lan --optimize                    # LAN mode with performance optimizations
+    %(prog)s --cli --prompt "test" --optimize    # CLI with ~2x faster inference
 
   DoRA Adapters:
     %(prog)s --list-dora-adapters                        # List available adapters

@@ -134,6 +134,9 @@ def main():
         if args.force_fp32:
             logger.info("FP32 parity mode enabled (--force-fp32)")
 
+        if args.optimize:
+            logger.info("Performance mode enabled (--optimize: TF32 + torch.compile)")
+
         if args.host == "0.0.0.0":
             logger.info(f"LAN mode enabled on port {args.port}")
         else:
@@ -142,10 +145,11 @@ def main():
         # Pre-load CSV data
         get_prompt_data()
 
-        # Create and launch interface (pass model_path and force_fp32 if specified)
+        # Create and launch interface (pass model_path, force_fp32, and optimize if specified)
         demo = create_interface(
             model_path=args.model_path if hasattr(args, 'model_path') else None,
-            force_fp32=args.force_fp32 if hasattr(args, 'force_fp32') else False
+            force_fp32=args.force_fp32 if hasattr(args, 'force_fp32') else False,
+            optimize=args.optimize if hasattr(args, 'optimize') else False
         )
 
         # Enable queue for progress tracking (required by Gradio 3.50.x)
