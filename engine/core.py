@@ -81,12 +81,16 @@ class NoobAIEngine:
                     if self._dora_manager.dora_loaded:
                         self._dora_manager.set_strength(self.adapter_strength)
 
-                # Apply torch.compile AFTER DoRA loading
-                # Compiling before DoRA breaks adapter injection into compiled modules
+                # Apply torch.compile only when DoRA is not loaded
+                # PEFT adapters cause graph breaks incompatible with torch.compile
+                # TF32 speedup is still active regardless of compilation
                 if self.optimize and self._device == "cuda":
-                    logger.info("Compiling UNet with torch.compile (first inference will be slower)...")
-                    self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead")
-                    logger.info("UNet compiled successfully")
+                    if self._dora_manager.dora_loaded:
+                        logger.info("Skipping torch.compile (incompatible with DoRA); TF32 still active")
+                    else:
+                        logger.info("Compiling UNet with torch.compile (first inference will be slower)...")
+                        self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead")
+                        logger.info("UNet compiled successfully")
 
         except Exception as e:
             self.is_initialized = False

@@ -99,7 +99,7 @@ def cli_generate(args):
             print("🔒 Parity mode: FP32 inference enabled for reproducibility")
 
         if args.optimize:
-            print("⚡ Performance mode: TF32 + torch.compile enabled (first run includes compilation)")
+            print("⚡ Performance mode: TF32 enabled" + (" (torch.compile skipped for DoRA compatibility)" if args.enable_dora else " + torch.compile (first run slower)"))
 
         engine = NoobAIEngine(
             model_path=path_or_error,
@@ -290,7 +290,7 @@ def parse_args():
     precision_group.add_argument("--parity-mode", action="store_true", dest="force_fp32",
                           help="Alias for --force-fp32 (parity testing mode)")
     precision_group.add_argument("--optimize", action="store_true",
-                          help="Enable performance optimizations (TF32 + torch.compile). ~2x faster but outputs differ from baseline")
+                          help="Enable TF32 matmuls + torch.compile (compile skipped when DoRA loaded). ~1.5-2x faster")
 
     gui_group = parser.add_argument_group("GUI Options")
     gui_group.add_argument("--host", type=str, default="127.0.0.1", help="GUI server host")
