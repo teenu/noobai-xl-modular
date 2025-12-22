@@ -1,8 +1,12 @@
 """Token counting and prompt validation for SDXL dual text encoder."""
 
 import re
+import logging
 from typing import Tuple, Optional, Any
 from config import logger
+
+# Get HuggingFace tokenizer logger to suppress long sequence warnings
+_hf_tokenizer_logger = logging.getLogger("transformers.tokenization_utils_base")
 
 
 class TokenManager:
@@ -48,23 +52,34 @@ class TokenManager:
         clean_text = self._strip_weights(text)
 
         try:
-            # Get token count from CLIP-L tokenizer
-            tokens_1 = self.tokenizer_1(
-                clean_text,
-                truncation=False,
-                add_special_tokens=True,
-                return_tensors=None
-            )
-            count_1 = len(tokens_1['input_ids'])
+            # Temporarily suppress HuggingFace tokenizer warning about sequence length
+            # "Token indices sequence length is longer than the specified maximum sequence length"
+            # This warning is expected when counting tokens for long prompts with truncation=False
+            # Since sd_embed handles chunking, the warning is not relevant for our use case
+            original_level = _hf_tokenizer_logger.level
+            _hf_tokenizer_logger.setLevel(logging.ERROR)
 
-            # Get token count from OpenCLIP-G tokenizer
-            tokens_2 = self.tokenizer_2(
-                clean_text,
-                truncation=False,
-                add_special_tokens=True,
-                return_tensors=None
-            )
-            count_2 = len(tokens_2['input_ids'])
+            try:
+                # Get token count from CLIP-L tokenizer
+                tokens_1 = self.tokenizer_1(
+                    clean_text,
+                    truncation=False,
+                    add_special_tokens=True,
+                    return_tensors=None
+                )
+                count_1 = len(tokens_1['input_ids'])
+
+                # Get token count from OpenCLIP-G tokenizer
+                tokens_2 = self.tokenizer_2(
+                    clean_text,
+                    truncation=False,
+                    add_special_tokens=True,
+                    return_tensors=None
+                )
+                count_2 = len(tokens_2['input_ids'])
+            finally:
+                # Restore original logger level
+                _hf_tokenizer_logger.setLevel(original_level)
 
             return (count_1, count_2)
 
@@ -145,6 +160,7 @@ class TokenManager:
         - (text:1.2) -> text (explicit weight)
         - ((text)) -> text (nested emphasis)
         - [text] -> text (de-emphasis)
+        - Nested weights like (outer (inner:1.2):0.9) -> outer inner
 
         Args:
             text: Text with potential weight syntax
@@ -155,8 +171,14 @@ class TokenManager:
         if not text:
             return ""
 
-        # Remove explicit weights: (text:1.2) -> text
-        text = re.sub(r'\(([^():]+):[\d.]+\)', r'\1', text)
+        # Iteratively remove explicit weights until no more matches
+        # This handles nested weights like (outer (inner:1.2):0.9)
+        pattern = r'\(([^():]+):[\d.]+\)'
+        while re.search(pattern, text):
+            prev = text
+            text = re.sub(pattern, r'\1', text)
+            if text == prev:  # Prevent infinite loop on malformed input
+                break
 
         # Remove nested emphasis: ((text)) -> text, (((text))) -> text
         while '((' in text or '))' in text:
