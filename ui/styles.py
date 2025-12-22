@@ -57,6 +57,15 @@ CSS_STYLES = """
     transform: scale(1.1);
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+.dora-preset-badge {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-bottom: 8px;
+    display: inline-block;
+}
 """
 
 JAVASCRIPT_HEAD = """
