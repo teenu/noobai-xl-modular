@@ -13,7 +13,7 @@ from ui.engine_manager import (
 )
 from ui.widgets import (
     create_search_ui, connect_search_events, create_clear_handler,
-    create_status_updater
+    create_status_updater, format_token_count_html
 )
 from ui.search_helpers import compose_final_prompt, get_random_value
 from ui.generation import (
@@ -137,6 +137,10 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                     with gr.Group(elem_classes=["final-prompt-container"]):
                         gr.HTML('<div class="segment-header">🎯 Final Prompt</div>')
                         final_prompt = gr.Textbox(label="Positive Prompt", lines=4)
+                        token_counter = gr.HTML(
+                            value='<div style="color: gray; font-size: 0.9em;">Token count will appear when engine is ready</div>',
+                            elem_classes=["token-counter"]
+                        )
                         with gr.Row():
                             compose_btn = gr.Button("🔄 Compose", variant="primary")
                             randomize_all_btn = gr.Button("🎲 Randomize All", variant="secondary")
@@ -447,8 +451,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                      cfg_scale, rescale_cfg, adapter_strength, steps, is_programmatic_change]
         )
 
-        # Prompt composition
-        compose_btn.click(compose_final_prompt, inputs=all_prompt_inputs, outputs=[final_prompt])
+        # Prompt composition (compose_btn.click is handled below with token counter update)
         prefix_reset_btn.click(lambda: DEFAULT_POSITIVE_PREFIX, outputs=[prefix_text])
         negative_reset_btn.click(lambda: DEFAULT_NEGATIVE_PROMPT, outputs=[negative_prompt])
         custom_clear_btn.click(create_clear_handler('text'), outputs=[custom_text])
@@ -456,13 +459,46 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
         def clear_all_prompts():
             return "", "", "", "", ""
 
-        clear_all_btn.click(clear_all_prompts, outputs=[prefix_text, character_text, artist_text, custom_text, final_prompt])
+        clear_all_btn.click(clear_all_prompts, outputs=[prefix_text, character_text, artist_text, custom_text, final_prompt]).then(
+            lambda: '<div style="color: gray; font-size: 0.9em;">Enter a prompt to see token count</div>',
+            outputs=[token_counter],
+            show_progress=False
+        )
 
         # Connect search events with auto-compose
         connect_search_events('character', character_search, character_dropdown, character_text, character_clear_btn, character_randomize_btn, character_source_filter,
                               compose_fn=compose_final_prompt, compose_inputs=all_prompt_inputs, final_prompt_output=final_prompt)
         connect_search_events('artist', artist_search, artist_dropdown, artist_text, artist_clear_btn, artist_randomize_btn, artist_source_filter,
                               compose_fn=compose_final_prompt, compose_inputs=all_prompt_inputs, final_prompt_output=final_prompt)
+
+        # Token counter update function
+        def update_token_counter(prompt_text: str) -> str:
+            """Update the token counter display based on current prompt."""
+            engine = get_engine_safely()
+            if engine is None or not engine.is_initialized:
+                return '<div style="color: gray; font-size: 0.9em;">Initialize engine for token count</div>'
+            token_info = engine.count_prompt_tokens(prompt_text)
+            return format_token_count_html(token_info)
+
+        # Wire up token counter to final prompt changes
+        final_prompt.change(
+            update_token_counter,
+            inputs=[final_prompt],
+            outputs=[token_counter],
+            show_progress=False
+        )
+
+        # Also update token counter after compose button
+        compose_btn.click(
+            compose_final_prompt,
+            inputs=all_prompt_inputs,
+            outputs=[final_prompt]
+        ).then(
+            update_token_counter,
+            inputs=[final_prompt],
+            outputs=[token_counter],
+            show_progress=False
+        )
 
         # Randomize All button handler
         def randomize_all(char_filter, artist_filter):
@@ -479,6 +515,11 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
             compose_final_prompt,
             inputs=all_prompt_inputs,
             outputs=[final_prompt]
+        ).then(
+            update_token_counter,
+            inputs=[final_prompt],
+            outputs=[token_counter],
+            show_progress=False
         )
 
         # Generation

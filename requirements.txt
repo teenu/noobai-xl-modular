@@ -27,6 +27,11 @@ accelerate>=0.21.0,<1.0.0
 # Required for loading DoRA (Weight-Decomposed Low-Rank Adaptation) adapters
 peft>=0.12.0,<1.0.0
 
+# Long Prompt Support
+# Extends beyond 77-token CLIP limit with A1111 weight syntax support (text:1.2)
+# Install from GitHub: pip install git+https://github.com/xhinker/sd_embed.git@main
+sd_embed @ git+https://github.com/xhinker/sd_embed.git@main
+
 # Web Interface (Gradio 4.x has better compatibility than 3.x)
 gradio>=4.0.0,<5.0.0
 

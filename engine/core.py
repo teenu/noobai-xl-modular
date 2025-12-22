@@ -18,6 +18,7 @@ from engine.model_loader import detect_device, load_pipeline
 from engine.dora_manager import DoRAManager
 from engine.progress import ProgressManager
 from engine.memory import clear_memory, teardown_pipeline
+from engine.prompt import TokenManager, EmbeddingGenerator
 
 torch.use_deterministic_algorithms(True, warn_only=True)
 torch.backends.cudnn.deterministic = True
@@ -75,6 +76,14 @@ class NoobAIEngine:
 
                 self._dora_manager = DoRAManager(self.pipe, self._device)
                 self._progress_manager = ProgressManager(self.pipe, self._device, self._dora_manager)
+
+                # Initialize prompt processing for long prompt support
+                self._token_manager = TokenManager(
+                    self.pipe.tokenizer,
+                    self.pipe.tokenizer_2
+                )
+                self._embedding_generator = EmbeddingGenerator(self.pipe)
+                logger.info(f"Prompt encoding: {self._embedding_generator.mode_description}")
 
                 if self.enable_dora:
                     self._dora_manager.load_adapter(dora_path)
@@ -166,6 +175,40 @@ class NoobAIEngine:
             'strength': self.adapter_strength if self.dora_loaded else 0.0,
             'start_step': self.dora_start_step
         }
+
+    def count_prompt_tokens(self, prompt: str) -> Dict[str, Any]:
+        """Get token count information for a prompt.
+
+        Provides detailed token information for UI display, including
+        counts for both SDXL text encoders and chunk requirements.
+
+        Args:
+            prompt: The prompt text to analyze
+
+        Returns:
+            Dictionary with token information:
+            - clip_l_tokens: Token count for CLIP-L encoder
+            - openclip_g_tokens: Token count for OpenCLIP-G encoder
+            - max_tokens: Maximum of both counts
+            - chunks: Number of 75-token chunks needed
+            - is_long: Whether prompt exceeds 77 tokens
+            - warning: Warning message if very long, else None
+            - long_prompt_supported: Whether sd_embed is available
+        """
+        if not self.is_initialized or not hasattr(self, '_token_manager'):
+            return {
+                'clip_l_tokens': 0,
+                'openclip_g_tokens': 0,
+                'max_tokens': 0,
+                'chunks': 0,
+                'is_long': False,
+                'warning': None,
+                'long_prompt_supported': False
+            }
+
+        info = self._token_manager.get_status_info(prompt)
+        info['long_prompt_supported'] = self._embedding_generator.is_long_prompt_supported
+        return info
 
     def save_image_standardized(self, image: Image.Image, output_path: str, include_metadata: bool = True) -> str:
         """Save image with standardized settings for consistent hashing."""
@@ -298,10 +341,29 @@ class NoobAIEngine:
             )
 
             try:
+                # Generate embeddings (handles long prompts via sd_embed)
+                token_info = self._token_manager.get_status_info(prompt)
+                if token_info['warning']:
+                    logger.warning(token_info['warning'])
+                    info_parts.append(f"⚠️ {token_info['warning']}")
+
+                if token_info['is_long']:
+                    logger.info(f"Long prompt detected: {token_info['max_tokens']} tokens ({token_info['chunks']} chunks)")
+
+                (prompt_embeds,
+                 negative_prompt_embeds,
+                 pooled_prompt_embeds,
+                 negative_pooled_prompt_embeds) = self._embedding_generator.generate(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt
+                )
+
                 with torch.no_grad():
                     result = self.pipe(
-                        prompt=prompt,
-                        negative_prompt=negative_prompt,
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_prompt_embeds,
+                        pooled_prompt_embeds=pooled_prompt_embeds,
+                        negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
                         width=width,
                         height=height,
                         num_inference_steps=steps,

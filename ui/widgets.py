@@ -21,6 +21,70 @@ def create_clear_handler(component_type: str):
     return handlers.get(component_type, clear_text)
 
 
+def format_token_count_html(token_info: dict) -> str:
+    """Format token count information as HTML for display.
+
+    Args:
+        token_info: Dictionary from engine.count_prompt_tokens() containing:
+            - max_tokens: Maximum token count
+            - chunks: Number of chunks needed
+            - is_long: Whether prompt exceeds 77 tokens
+            - warning: Warning message if applicable
+            - long_prompt_supported: Whether sd_embed is available
+
+    Returns:
+        HTML string for display in the token counter element
+    """
+    if not token_info or token_info.get('max_tokens', 0) == 0:
+        return '<div style="color: gray; font-size: 0.9em;">Enter a prompt to see token count</div>'
+
+    tokens = token_info.get('max_tokens', 0)
+    chunks = token_info.get('chunks', 1)
+    is_long = token_info.get('is_long', False)
+    warning = token_info.get('warning')
+    long_supported = token_info.get('long_prompt_supported', False)
+
+    # Determine color and status based on token count
+    if tokens <= 77:
+        color = "#28a745"  # Green
+        icon = "✅"
+        status = f"{tokens}/77 tokens"
+    elif chunks <= 2:
+        color = "#17a2b8"  # Blue
+        icon = "📝"
+        status = f"{tokens} tokens ({chunks} chunks)"
+    elif chunks <= 4:
+        color = "#ffc107"  # Orange/yellow
+        icon = "⚠️"
+        status = f"{tokens} tokens ({chunks} chunks)"
+    elif chunks <= 8:
+        color = "#fd7e14"  # Darker orange
+        icon = "⚠️"
+        status = f"{tokens} tokens ({chunks} chunks - long prompt)"
+    else:
+        color = "#dc3545"  # Red
+        icon = "❌"
+        status = f"{tokens} tokens ({chunks} chunks - very long!)"
+
+    # Build the HTML
+    html = f'<div style="font-size: 0.9em;">'
+    html += f'<span style="color: {color};">{icon} {status}</span>'
+
+    # Add long prompt support indicator
+    if is_long:
+        if long_supported:
+            html += ' <span style="color: #17a2b8; font-size: 0.85em;">(long prompt enabled)</span>'
+        else:
+            html += ' <span style="color: #dc3545; font-size: 0.85em;">(will be truncated!)</span>'
+
+    # Add warning if present
+    if warning:
+        html += f'<br><span style="color: #fd7e14; font-size: 0.85em;">{warning}</span>'
+
+    html += '</div>'
+    return html
+
+
 def create_status_updater(param_type: str):
     """Create a status update function for parameters."""
     def update_cfg_status(value):

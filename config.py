@@ -54,7 +54,7 @@ class ModelConfig:
 @dataclass
 class GenerationConfig:
     """Generation configuration constants."""
-    MAX_PROMPT_LENGTH: int = 1000
+    MAX_PROMPT_LENGTH: int = 5000  # Increased from 1000 for long prompts
     MIN_RESOLUTION: int = 256
     MAX_RESOLUTION: int = 2048
     MIN_STEPS: int = 1
@@ -79,10 +79,19 @@ class SearchScoring:
     PREFIX_MATCH: int = 2
     CONTAINS_MATCH: int = 1
 
+@dataclass
+class PromptConfig:
+    """Prompt processing configuration for long prompt support."""
+    MAX_CHUNKS: int = 8       # Maximum ~600 tokens (8 * 75 + overhead)
+    WARN_CHUNKS: int = 4      # Warn above ~300 tokens
+    TOKEN_LIMIT: int = 77     # CLIP token limit per encoder
+    CHUNK_SIZE: int = 75      # Usable tokens per chunk (77 - BOS/EOS)
+
 # Create configuration instances
 MODEL_CONFIG = ModelConfig()
 GEN_CONFIG = GenerationConfig()
 SEARCH_CONFIG = SearchConfig()
+PROMPT_CONFIG = PromptConfig()
 
 # Output directory for generated images
 # Use 'outputs' subdirectory in script location for persistent storage
