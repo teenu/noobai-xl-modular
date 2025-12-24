@@ -44,7 +44,8 @@ def find_model_path() -> Optional[str]:
                     file_size = os.path.getsize(path)
                     if file_size > MODEL_CONFIG.MIN_FILE_SIZE_MB * 1024 * 1024:
                         return path
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Error checking model path {path}: {e}")
                 continue
     return None
 

@@ -110,9 +110,6 @@ def _validate_file_path(
         if not is_allowed:
             return False, f"Security: {reason}"
 
-        if reason:
-            logger.warning(f"{file_type} path security warning: {reason}")
-
         return True, normalized_path
 
     except (IOError, OSError) as e:

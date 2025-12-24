@@ -110,22 +110,6 @@ class StateManager:
             if self._state == GenerationState.GENERATING:
                 self._state = GenerationState.INTERRUPTED
 
-    def try_start_generation(self) -> bool:
-        """Attempt to start generation."""
-        with self._lock:
-            if self._state == GenerationState.IDLE:
-                self._state = GenerationState.GENERATING
-                return True
-            return False
-
-    def try_complete_generation(self) -> bool:
-        """Attempt to mark generation as completed."""
-        with self._lock:
-            if self._state == GenerationState.GENERATING:
-                self._state = GenerationState.COMPLETED
-                return True
-            return False
-
     def finish_generation(self) -> None:
         """Finish generation and return to IDLE state."""
         with self._lock:

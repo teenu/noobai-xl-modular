@@ -149,7 +149,7 @@ class EmbeddingGenerator:
             # Determine the device to use
             device = self.pipe.device if hasattr(self.pipe, 'device') else 'cuda'
             if hasattr(device, 'type'):
-                device = device
+                device = device.type
 
             # Use pipeline's internal encoding method
             # This handles both text encoders but truncates at 77 tokens

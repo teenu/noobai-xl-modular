@@ -177,7 +177,8 @@ def load_pipeline(model_path: str, device: str, force_fp32: bool = False, optimi
                 logger.info(f"CPU offloading enabled ({vram_gb:.1f}GB VRAM)")
             else:
                 pipe = pipe.to(device)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"VRAM check failed, moving pipeline to device directly: {e}")
             pipe = pipe.to(device)
     else:
         pipe = pipe.to(device)
