@@ -36,21 +36,22 @@ Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimizatio
 ## System Requirements
 
 ### Minimum
-- Python 3.8+
+- Python 3.11+
 - 8GB System RAM
 - GPU: NVIDIA GTX 1060 6GB or equivalent (CUDA support)
 - ~15GB free disk space (7GB model + dependencies)
 
 ### Recommended
-- Python 3.10+
+- Python 3.11 or 3.12
 - 16GB System RAM
-- GPU: NVIDIA RTX 2060 6GB or better
-- CUDA 11.8 or newer
+- GPU: NVIDIA RTX 3060 12GB or better
+- CUDA 12.4+ (CUDA 12.8 for RTX 5090)
 
 ### GPU Compatibility
-- **RTX 20xx series (Turing)**: BF16 model upcast to FP32 (slower but lossless)
+- **RTX 50xx series (Blackwell)**: Native BF16 support, requires CUDA 12.8+ and PyTorch 2.9+
 - **RTX 30xx/40xx series (Ampere/Ada)**: Native BF16 support (optimal)
-- **Apple Silicon (M1/M2/M3)**: Native BF16 via AMX (optimal)
+- **RTX 20xx series (Turing)**: BF16 model upcast to FP32 (slower but lossless)
+- **Apple Silicon (M1/M2/M3/M4)**: Native BF16 via AMX (optimal)
 - **<8GB VRAM**: Automatic CPU offloading enabled
 - **≥8GB VRAM**: Full GPU loading
 
@@ -58,21 +59,31 @@ Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimizatio
 
 ### 1. Install PyTorch
 
-Choose the appropriate PyTorch version for your platform:
+Choose the appropriate PyTorch version for your GPU:
 
-**CUDA (NVIDIA GPU - Recommended):**
+**RTX 5090 (Blackwell) - CUDA 12.8:**
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cu118
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+```
+
+**RTX 30xx/40xx (Ampere/Ada) - CUDA 12.4:**
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
+
+**RTX 20xx (Turing) - CUDA 11.8:**
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
 **CPU Only:**
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 ```
 
 **Apple Silicon (MPS):**
 ```bash
-pip install torch
+pip install torch torchvision torchaudio
 ```
 
 ### 2. Install Dependencies
@@ -235,17 +246,39 @@ python main.py --cli --help
 ```
 noobai-xl-modular/
 ├── main.py                 # Entry point (GUI/CLI)
-├── engine.py              # Core inference engine
-├── ui.py                  # Gradio interface
-├── cli.py                 # CLI functionality
-├── config.py              # Configuration constants
-├── requirements.txt       # Python dependencies
-├── README.md              # This file
-├── dora/                  # DoRA adapter files (*.safetensors)
+├── cli.py                  # CLI argument parsing
+├── config.py               # Configuration constants
+├── state.py                # State management
+├── prompt_formatter.py     # Character/artist search
+├── requirements.txt        # Python dependencies
+├── README.md               # This file
+├── engine/                 # Core inference engine
+│   ├── __init__.py
+│   ├── core.py             # Main engine class
+│   ├── model_loader.py     # Model loading and precision
+│   ├── dora_manager.py     # DoRA adapter management
+│   ├── memory.py           # GPU memory utilities
+│   ├── progress.py         # Progress tracking
+│   └── prompt/             # Long prompt support
+│       ├── tokenizer.py
+│       └── embedding.py
+├── ui/                     # Gradio interface
+│   ├── __init__.py
+│   ├── interface.py        # Main UI components
+│   ├── engine_manager.py   # Engine lifecycle
+│   ├── generation.py       # Image generation handlers
+│   ├── widgets.py          # UI widget helpers
+│   └── styles.py           # CSS and JavaScript
+├── utils/                  # Utility functions
+│   ├── __init__.py
+│   ├── validation.py       # Path and parameter validation
+│   ├── dora.py             # DoRA discovery
+│   └── schedules.py        # DoRA schedule parsing
+├── dora/                   # DoRA adapter files (*.safetensors)
 │   └── .gitkeep
-├── style/                 # Character/artist CSV databases
+├── style/                  # Character/artist CSV databases
 │   └── .gitkeep
-└── outputs/               # Generated images
+└── outputs/                # Generated images
     └── .gitkeep
 ```
 
@@ -288,11 +321,16 @@ noobai-xl-modular/
 
 ### Platform Behavior
 
-**Apple Silicon (M1/M2/M3):**
+**Apple Silicon (M1/M2/M3/M4):**
 - Native BF16 via AMX instructions
 - Optimal performance + quality
 
-**RTX 30xx/40xx (Ampere/Ada/Hopper):**
+**RTX 50xx (Blackwell):**
+- Native BF16 via tensor cores
+- Requires CUDA 12.8+ and PyTorch 2.9+
+- Optimal performance + quality
+
+**RTX 30xx/40xx (Ampere/Ada):**
 - Native BF16 via tensor cores
 - Optimal performance + quality
 
@@ -392,7 +430,8 @@ This is a known Windows-specific issue where pip's cache can become corrupted du
 - **Model**: NoobAI XL V-Pred 1.0
 - **Framework**: Diffusers (Hugging Face)
 - **UI**: Gradio
-- **Optimization**: FP16 precision, CPU offloading, DoRA adapters
+- **Optimization**: Lossless BF16/FP32 precision, CPU offloading, DoRA adapters
+- **Long Prompts**: sd_embed for >77 token support
 
 ## License
 

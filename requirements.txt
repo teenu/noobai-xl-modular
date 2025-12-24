@@ -5,9 +5,20 @@
 # ============================================================================
 # PYTORCH - Install FIRST, separately (platform-specific)
 # ============================================================================
-# Windows/Linux CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu118
-# Linux/WSL CPU:      pip install torch --index-url https://download.pytorch.org/whl/cpu
-# macOS (Apple Silicon): pip install torch
+# NVIDIA RTX 50xx (Blackwell) - CUDA 12.8:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+#
+# NVIDIA RTX 30xx/40xx (Ampere/Ada) - CUDA 12.4:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+#
+# NVIDIA RTX 20xx (Turing) - CUDA 11.8:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# Linux/WSL CPU Only:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+#
+# macOS (Apple Silicon):
+#   pip install torch torchvision torchaudio
 #
 # Then run: pip install -r requirements.txt
 # ============================================================================
@@ -32,7 +43,8 @@ peft>=0.12.0,<1.0.0
 # Install from GitHub: pip install git+https://github.com/xhinker/sd_embed.git@main
 sd_embed @ git+https://github.com/xhinker/sd_embed.git@main
 
-# Web Interface (Gradio 4.x has better compatibility than 3.x)
+# Web Interface (Gradio 4.x - DO NOT upgrade to 5.x or 6.x)
+# Gradio 5.x+ has breaking changes: removed params, SSR mode, proxy issues
 gradio>=4.0.0,<5.0.0
 
 # Image Processing
@@ -53,17 +65,19 @@ numpy>=1.24.0,<2.0.0
 pydantic>=2.0.0,<2.11.0
 
 # ============================================================================
-# VERSION CONSTRAINTS
+# VERSION CONSTRAINTS (IMPORTANT - DO NOT REMOVE)
 # ============================================================================
 # Upper bounds prevent breaking changes from newer package versions:
-# - diffusers<0.32.0: VAE API changes in 0.32+
-# - accelerate<1.0.0: API restructuring in 1.0
+#
+# - diffusers<0.32.0: VAE API changes in 0.32+ break compatibility
+# - accelerate<1.0.0: API restructuring in 1.0 causes import errors
 # - huggingface-hub<1.0.0: Breaking changes in 1.0
 # - numpy<2.0.0: ABI incompatibility with PyTorch <2.3.1
 # - gradio<5.0.0: Breaking changes (removed params, SSR mode, proxy issues)
 # - pydantic<2.11.0: Bug in gradio_client with pydantic 2.11+ causes TypeError
 #
-# To upgrade to newer versions, test thoroughly in a separate environment first.
+# These constraints have been tested for stability. To upgrade to newer
+# versions, test thoroughly in a separate environment first.
 # ============================================================================
 
 # ============================================================================
@@ -73,14 +87,22 @@ pydantic>=2.0.0,<2.11.0
 # 1. Install Python 3.11 or 3.12 (NOT 3.13 - too new for ML packages)
 #    Download from: https://www.python.org/downloads/
 #
-# 2. Install PyTorch with CUDA support:
-#    pip install torch --index-url https://download.pytorch.org/whl/cu118
+# 2. Install PyTorch with appropriate CUDA version for your GPU:
+#
+#    RTX 5090 (Blackwell) - requires PyTorch 2.9+:
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+#
+#    RTX 30xx/40xx (Ampere/Ada):
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+#
+#    RTX 20xx (Turing):
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 #
 # 3. Install remaining dependencies:
 #    pip install -r requirements.txt
 #
 # 4. Verify installation:
-#    python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+#    python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
 #
 # WINDOWS USERS: If you encounter "ModuleNotFoundError: No module named 'transformers.utils'"
 # after installation, this indicates a corrupted transformers installation. Fix with:
@@ -97,9 +119,9 @@ pydantic>=2.0.0,<2.11.0
 #   3. Restart computer
 #
 # CUDA Not Detected:
-#   - Ensure NVIDIA drivers are installed
+#   - Ensure NVIDIA drivers are installed (545+ for RTX 5090)
 #   - Verify with: nvidia-smi
-#   - Reinstall PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu118
+#   - Reinstall PyTorch with correct CUDA version for your GPU
 #
 # Package Conflicts:
 #   - Use Python 3.11 or 3.12 (avoid 3.13)
