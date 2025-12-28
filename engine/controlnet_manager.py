@@ -4,7 +4,8 @@ import os
 import struct
 import json
 import torch
-from typing import Optional
+from safetensors.torch import load_file as load_safetensors
+from typing import Optional, Tuple
 from PIL import Image
 from diffusers import ControlNetModel
 from config import logger, CONTROLNET_CONFIG, DTYPE_MAP
@@ -15,6 +16,37 @@ from utils.controlnet import (
     validate_pose_image
 )
 from engine.memory import clear_memory
+
+
+def detect_controlnet_format(model_path: str) -> str:
+    """Detect whether a ControlNet safetensors file is in diffusers or original format.
+
+    Diffusers format uses keys like 'down_blocks.0.resnets.0.conv1.weight'
+    Original format uses keys like 'input_blocks.1.0.in_layers.0.weight'
+
+    Returns:
+        'diffusers' or 'original'
+    """
+    try:
+        with open(model_path, 'rb') as f:
+            header_size = struct.unpack('<Q', f.read(8))[0]
+            header_data = json.loads(f.read(header_size).decode('utf-8'))
+
+        for key in header_data.keys():
+            if key == '__metadata__':
+                continue
+            # Diffusers format indicators
+            if key.startswith('down_blocks.') or key.startswith('controlnet_down_blocks.'):
+                return 'diffusers'
+            # Original ControlNet format indicators
+            if key.startswith('input_blocks.') or key.startswith('zero_convs.'):
+                return 'original'
+
+        # Default to original if uncertain (from_single_file will handle it)
+        return 'original'
+    except Exception as e:
+        logger.warning(f"Could not detect ControlNet format, assuming original: {e}")
+        return 'original'
 
 
 def detect_controlnet_model_precision(model_path: str) -> torch.dtype:
@@ -118,11 +150,15 @@ class ControlNetManager:
                 load_dtype = torch.float32
                 logger.info("Loading ControlNet as FP32 (default)")
 
-            # Load ControlNet model with explicit SDXL config
-            # All SDXL ControlNets (Canny, OpenPose, Depth, etc.) share the same architecture.
-            # Using explicit config avoids auto-detection issues on some systems where
-            # diffusers incorrectly detects SDXL models as SD1.5.
-            # Use local config to avoid Windows HuggingFace download issues.
+            # Detect ControlNet format and load accordingly
+            # Some ControlNets are distributed in diffusers format (already converted),
+            # while others are in original ControlNet format. Using the wrong loading
+            # method causes "is_floating_point(): argument 'input' must be Tensor, not NoneType"
+            # See: https://github.com/huggingface/diffusers/issues/9976
+            model_format = detect_controlnet_format(validated_path)
+            logger.info(f"Detected ControlNet format: {model_format}")
+
+            # Get config path - use local config to avoid Windows HuggingFace download issues
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             local_config = os.path.join(script_dir, "configs", "controlnet-sdxl")
 
@@ -132,12 +168,27 @@ class ControlNetManager:
                 # Fallback to HuggingFace if local config doesn't exist
                 config_path = "diffusers/controlnet-canny-sdxl-1.0"
 
-            self.controlnet = ControlNetModel.from_single_file(
-                validated_path,
-                torch_dtype=load_dtype,
-                config=config_path
-            )
-            self.controlnet = self.controlnet.to(self.device)
+            if model_format == 'diffusers':
+                # Load diffusers-format ControlNet directly using from_config + load_state_dict
+                # This avoids the from_single_file conversion issues
+                logger.info("Loading diffusers-format ControlNet via state_dict")
+                config = ControlNetModel.load_config(config_path)
+                self.controlnet = ControlNetModel.from_config(config)
+                state_dict = load_safetensors(validated_path)
+                self.controlnet.load_state_dict(state_dict)
+                self.controlnet = self.controlnet.to(load_dtype).to(self.device)
+            else:
+                # Load original-format ControlNet using from_single_file
+                # All SDXL ControlNets (Canny, OpenPose, Depth, etc.) share the same architecture.
+                # Using explicit config avoids auto-detection issues on some systems where
+                # diffusers incorrectly detects SDXL models as SD1.5.
+                logger.info("Loading original-format ControlNet via from_single_file")
+                self.controlnet = ControlNetModel.from_single_file(
+                    validated_path,
+                    torch_dtype=load_dtype,
+                    config=config_path
+                )
+                self.controlnet = self.controlnet.to(self.device)
 
             self.controlnet_path = validated_path
             self.controlnet_loaded = True
