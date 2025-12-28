@@ -122,10 +122,20 @@ class ControlNetManager:
             # All SDXL ControlNets (Canny, OpenPose, Depth, etc.) share the same architecture.
             # Using explicit config avoids auto-detection issues on some systems where
             # diffusers incorrectly detects SDXL models as SD1.5.
+            # Use local config to avoid Windows HuggingFace download issues.
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            local_config = os.path.join(script_dir, "configs", "controlnet-sdxl")
+
+            if os.path.isdir(local_config):
+                config_path = local_config
+            else:
+                # Fallback to HuggingFace if local config doesn't exist
+                config_path = "diffusers/controlnet-canny-sdxl-1.0"
+
             self.controlnet = ControlNetModel.from_single_file(
                 validated_path,
                 torch_dtype=load_dtype,
-                config="diffusers/controlnet-canny-sdxl-1.0"
+                config=config_path
             )
             self.controlnet = self.controlnet.to(self.device)
 
