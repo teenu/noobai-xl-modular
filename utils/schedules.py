@@ -52,23 +52,3 @@ def parse_manual_dora_schedule(schedule_input: Optional[str], num_steps: int) ->
     except Exception as e:
         logger.warning(f"Failed to parse manual DoRA schedule: {e}")
         return None, f"Manual DoRA schedule is malformed ({str(e)}) - DoRA will be OFF for all steps"
-
-
-def generate_standard_schedule(num_steps: int) -> List[int]:
-    """Generate standard toggle schedule: ON,OFF,ON,OFF throughout all steps."""
-    if num_steps <= 0:
-        return []
-    return [1 if i % 2 == 0 else 0 for i in range(num_steps)]
-
-
-def generate_smart_schedule(num_steps: int) -> List[int]:
-    """Generate smart toggle schedule: ON,OFF through step 20, then ON for remainder."""
-    if num_steps <= 0:
-        return []
-    schedule = []
-    for i in range(num_steps):
-        if i <= 19:
-            schedule.append(1 if i % 2 == 0 else 0)
-        else:
-            schedule.append(1)
-    return schedule
