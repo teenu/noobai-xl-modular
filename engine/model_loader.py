@@ -200,8 +200,7 @@ def load_pipeline(model_path: str, device: str, force_fp32: bool = False, optimi
 
 def create_controlnet_pipeline(
     base_pipe: StableDiffusionXLPipeline,
-    controlnet: ControlNetModel,
-    device: str
+    controlnet: ControlNetModel
 ) -> StableDiffusionXLControlNetPipeline:
     """Create a ControlNet pipeline from an existing base pipeline.
 
@@ -211,15 +210,10 @@ def create_controlnet_pipeline(
     Args:
         base_pipe: The base StableDiffusionXLPipeline
         controlnet: Loaded ControlNetModel
-        device: Target device (cuda/mps/cpu)
 
     Returns:
         StableDiffusionXLControlNetPipeline with ControlNet integrated
     """
-    # Check if VAE decode has been wrapped (for BF16→FP32 latent casting)
-    vae_decode_wrapped = hasattr(base_pipe.vae.decode, '__wrapped__') or \
-                         base_pipe.vae.decode.__name__ == 'decode_with_upcast' if hasattr(base_pipe.vae.decode, '__name__') else False
-
     # Store the original/wrapped decode function
     original_vae_decode = base_pipe.vae.decode
 

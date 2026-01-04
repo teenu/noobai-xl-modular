@@ -3,7 +3,7 @@
 import os
 import glob
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from PIL import Image
 from config import logger, CONTROLNET_SEARCH_DIRECTORIES, CONTROLNET_CONFIG
 from utils.formatting import format_file_size
@@ -57,7 +57,7 @@ def detect_controlnet_type(model_path: str) -> str:
     return "unknown"
 
 
-def validate_controlnet_path(path: str) -> tuple[bool, str]:
+def validate_controlnet_path(path: str) -> Tuple[bool, str]:
     """Validate ControlNet model path.
 
     Args:
@@ -208,7 +208,7 @@ def get_controlnet_by_name(model_name: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def validate_pose_image(image: Image.Image) -> tuple[bool, str]:
+def validate_pose_image(image: Image.Image) -> Tuple[bool, str]:
     """Validate a pose image for ControlNet.
 
     Args:

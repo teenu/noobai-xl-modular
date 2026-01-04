@@ -468,8 +468,7 @@ class NoobAIEngine:
                         # Create ControlNet pipeline for this generation
                         active_pipe = create_controlnet_pipeline(
                             self._base_pipe,
-                            self._controlnet_manager.controlnet,
-                            self._device
+                            self._controlnet_manager.controlnet
                         )
                         logger.info(f"Using ControlNet with scale: {self.controlnet_scale}")
                     else:
