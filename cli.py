@@ -6,7 +6,7 @@ from PIL import Image
 from config import (
     logger, OPTIMAL_SETTINGS, MODEL_CONFIG, CONTROLNET_CONFIG, DEFAULT_NEGATIVE_PROMPT,
     DORA_SEARCH_DIRECTORIES, CONTROLNET_SEARCH_DIRECTORIES,
-    OPTIMIZED_DORA_SETTINGS, OPTIMIZED_DORA_SCHEDULE_CSV
+    OPTIMIZED_DORA_SETTINGS, OPTIMIZED_DORA_SCHEDULE_CSV, OUTPUT_DIR
 )
 from utils import (
     discover_dora_adapters, get_dora_adapter_by_name, validate_model_path,
@@ -283,6 +283,20 @@ def cli_generate(args):
         print(f"🌱 Seed: {seed}")
         print(f"📄 MD5 Hash: {image_hash}")
 
+        # 3D generation using SHARP
+        if args.enable_3d:
+            from utils.sharp_integration import run_sharp_inference, check_sharp_available
+            is_available, msg = check_sharp_available()
+            if is_available:
+                print("🎯 Generating 3D model with SHARP...")
+                ply_path = run_sharp_inference(saved_path, OUTPUT_DIR)
+                if ply_path:
+                    print(f"🎯 3D model saved to: {ply_path}")
+                else:
+                    print("⚠️ 3D generation failed")
+            else:
+                print(f"⚠️ SHARP not available: {msg}")
+
         if engine.dora_loaded:
             print(f"🎯 DoRA: {os.path.basename(engine.dora_path)} (strength: {engine.adapter_strength})")
 
@@ -343,6 +357,9 @@ def parse_args():
     %(prog)s --list-controlnets                                          # List available ControlNets
     %(prog)s --cli --prompt "1girl" --pose-image pose.png                # Use pose for anatomy control
     %(prog)s --cli --prompt "1girl" --pose-image pose.png --controlnet-scale 0.8
+
+  3D Output (SHARP):
+    %(prog)s --cli --prompt "cat girl" --enable-3d                       # Generate image + 3D Gaussian model
 """
     )
 
@@ -365,6 +382,10 @@ def parse_args():
     parser.add_argument("--controlnet-name", type=str, help="Select ControlNet model by filename")
     parser.add_argument("--controlnet-scale", type=float, default=CONTROLNET_CONFIG.DEFAULT_CONDITIONING_SCALE,
                        help=f"ControlNet conditioning scale (default: {CONTROLNET_CONFIG.DEFAULT_CONDITIONING_SCALE}, range: {CONTROLNET_CONFIG.MIN_CONDITIONING_SCALE}-{CONTROLNET_CONFIG.MAX_CONDITIONING_SCALE})")
+
+    # 3D output arguments
+    parser.add_argument("--enable-3d", action="store_true",
+                       help="Generate 3D Gaussian representation using SHARP after image generation")
 
     cli_group = parser.add_argument_group("CLI Generation Options")
     cli_group.add_argument("--prompt", type=str, help="Positive prompt")

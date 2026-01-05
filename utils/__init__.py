@@ -31,6 +31,11 @@ from utils.formatting import (
     get_user_friendly_error
 )
 from utils.schedules import parse_manual_dora_schedule
+from utils.sharp_integration import (
+    check_sharp_available,
+    get_sharp_checkpoint_path,
+    run_sharp_inference
+)
 
 CSV_PATHS = get_safe_csv_paths()
 
@@ -58,5 +63,8 @@ __all__ = [
     'calculate_image_hash',
     'get_user_friendly_error',
     'parse_manual_dora_schedule',
+    'check_sharp_available',
+    'get_sharp_checkpoint_path',
+    'run_sharp_inference',
     'CSV_PATHS'
 ]

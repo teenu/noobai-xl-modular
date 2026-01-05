@@ -386,6 +386,15 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                         info="Strength of pose conditioning. V-pred models need ~2.0 for proper pose adherence"
                     )
 
+                # Output Options (3D generation)
+                with gr.Group():
+                    gr.HTML("<h4>📦 Output Options</h4>")
+                    enable_3d = gr.Checkbox(
+                        label="Enable 3D Output",
+                        value=False,
+                        info="Generate 3D Gaussian representation using SHARP (requires SHARP installation)"
+                    )
+
                 # Generate button
                 generate_btn = gr.Button(
                     "🎨 Generate Image" if is_ready else "❌ Initialize Engine First",
@@ -399,8 +408,21 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
             with gr.Column(scale=2):
                 with gr.Group():
                     gr.HTML("<h3>🖼️ Result</h3>")
+                    view_toggle = gr.Radio(
+                        label="View",
+                        choices=["2D Image", "3D Model"],
+                        value="2D Image",
+                        visible=False
+                    )
                     output_image = gr.Image(type="filepath", interactive=False, height=400, format="png")
+                    output_3d_model = gr.Model3D(
+                        label="3D Model",
+                        visible=False,
+                        height=400
+                    )
                     generation_info = gr.Textbox(label="Generation Info", lines=9, interactive=False)
+                    # Hidden state to track if 3D model is available
+                    has_3d_model = gr.State(value=False)
 
         with gr.Row():
             reset_btn = gr.Button("🔄 Reset to Optimal", variant="secondary", size="sm")
@@ -442,9 +464,10 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
             rescale_cfg, seed, use_custom_resolution, custom_width,
             custom_height, auto_randomize_seed, adapter_strength, enable_dora,
             dora_start_step, dora_toggle_mode, dora_manual_schedule_state,
-            enable_controlnet, controlnet_selection, pose_image, controlnet_scale
+            enable_controlnet, controlnet_selection, pose_image, controlnet_scale,
+            enable_3d
         ]
-        gen_outputs = [output_image, generation_info, seed]
+        gen_outputs = [output_image, generation_info, seed, output_3d_model, view_toggle, has_3d_model]
 
         # ControlNet UI handlers
         def update_controlnet_ui(enable_val):
@@ -459,6 +482,22 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
             update_controlnet_ui,
             inputs=[enable_controlnet],
             outputs=[controlnet_selection, pose_image, controlnet_scale]
+        )
+
+        # 3D view toggle handler
+        def toggle_output_view(view_choice, has_3d):
+            """Toggle between 2D image and 3D model views."""
+            if not has_3d:
+                return gr.update(visible=True), gr.update(visible=False)
+            return (
+                gr.update(visible=(view_choice == "2D Image")),
+                gr.update(visible=(view_choice == "3D Model"))
+            )
+
+        view_toggle.change(
+            toggle_output_view,
+            inputs=[view_toggle, has_3d_model],
+            outputs=[output_image, output_3d_model]
         )
 
         def refresh_controlnet_models():

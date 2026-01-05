@@ -36,8 +36,8 @@ def generate_image_with_progress(
     custom_height: int, auto_randomize_seed: bool, adapter_strength: float, enable_dora: bool,
     dora_start_step: int, dora_toggle_mode: Optional[str], dora_manual_schedule: str,
     enable_controlnet: bool, controlnet_selection: str, pose_image_input: Optional[Image.Image],
-    controlnet_scale: float, progress=gr.Progress()
-) -> Tuple[Optional[str], str, str]:
+    controlnet_scale: float, enable_3d: bool, progress=gr.Progress()
+) -> Tuple[Optional[str], str, str, Optional[str], gr.update, bool]:
     """Generate image with progress tracking."""
     try:
         # Get engine reference - get_engine_safely() handles its own locking
@@ -48,11 +48,11 @@ def generate_image_with_progress(
 
         if not engine_ready:
             state_manager.set_state(GenerationState.ERROR)
-            return None, "❌ Engine not initialized", seed
+            return None, "❌ Engine not initialized", seed, None, gr.update(visible=False), False
 
         if not prompt.strip():
             state_manager.set_state(GenerationState.ERROR)
-            return None, "❌ Please enter a prompt", seed
+            return None, "❌ Please enter a prompt", seed, None, gr.update(visible=False), False
 
         if use_custom_resolution:
             width = _coerce_int(custom_width, "Custom width")
@@ -69,7 +69,7 @@ def generate_image_with_progress(
         param_error = validate_parameters(width, height, steps, cfg_scale, rescale_cfg, adapter_strength, dora_start_step)
         if param_error:
             state_manager.set_state(GenerationState.ERROR)
-            return None, param_error, seed
+            return None, param_error, seed, None, gr.update(visible=False), False
 
         used_seed = None
         if not auto_randomize_seed:
@@ -82,7 +82,7 @@ def generate_image_with_progress(
                 used_seed = seed_val
             except (ValueError, InvalidParameterError) as e:
                 state_manager.set_state(GenerationState.ERROR)
-                return None, f"❌ Invalid seed: {str(e)}", seed
+                return None, f"❌ Invalid seed: {str(e)}", seed, None, gr.update(visible=False), False
 
         progress(0, desc="Starting generation...")
 
@@ -93,12 +93,12 @@ def generate_image_with_progress(
         if enable_controlnet:
             if not controlnet_selection or controlnet_selection == "None":
                 state_manager.set_state(GenerationState.ERROR)
-                return None, "❌ Please select a ControlNet model", seed
+                return None, "❌ Please select a ControlNet model", seed, None, gr.update(visible=False), False
 
             controlnet_path = get_controlnet_path_from_display_name(controlnet_selection)
             if not controlnet_path:
                 state_manager.set_state(GenerationState.ERROR)
-                return None, f"❌ ControlNet model '{controlnet_selection}' not found", seed
+                return None, f"❌ ControlNet model '{controlnet_selection}' not found", seed, None, gr.update(visible=False), False
 
             # Load or switch ControlNet if needed
             current_controlnet_path = current_engine.controlnet_path
@@ -107,22 +107,22 @@ def generate_image_with_progress(
                 if not current_engine.load_controlnet(controlnet_path):
                     error_detail = current_engine.get_controlnet_error() or "Unknown error"
                     state_manager.set_state(GenerationState.ERROR)
-                    return None, f"❌ Failed to load ControlNet: {error_detail}", seed
+                    return None, f"❌ Failed to load ControlNet: {error_detail}", seed, None, gr.update(visible=False), False
             elif current_controlnet_path != controlnet_path:
                 logger.info(f"Switching ControlNet to: {controlnet_selection}")
                 if not current_engine.switch_controlnet(controlnet_path):
                     error_detail = current_engine.get_controlnet_error() or "Unknown error"
                     state_manager.set_state(GenerationState.ERROR)
-                    return None, f"❌ Failed to switch ControlNet: {error_detail}", seed
+                    return None, f"❌ Failed to switch ControlNet: {error_detail}", seed, None, gr.update(visible=False), False
 
             # Validate pose image
             if pose_image_input is None:
                 state_manager.set_state(GenerationState.ERROR)
-                return None, "❌ Please upload a pose image when ControlNet is enabled", seed
+                return None, "❌ Please upload a pose image when ControlNet is enabled", seed, None, gr.update(visible=False), False
 
             if not isinstance(pose_image_input, Image.Image):
                 state_manager.set_state(GenerationState.ERROR)
-                return None, "❌ Invalid pose image format", seed
+                return None, "❌ Invalid pose image format", seed, None, gr.update(visible=False), False
 
             actual_pose_image = pose_image_input
 
@@ -150,7 +150,7 @@ def generate_image_with_progress(
 
         if not saved_path or not os.path.exists(saved_path):
             state_manager.set_state(GenerationState.ERROR)
-            return None, f"❌ Failed to save image to {output_path}", str(final_seed)
+            return None, f"❌ Failed to save image to {output_path}", str(final_seed), None, gr.update(visible=False), False
 
         try:
             image_hash = calculate_image_hash(saved_path)
@@ -162,30 +162,55 @@ def generate_image_with_progress(
             logger.warning(f"Hash calculation failed: {hash_error}")
             info += f"\n⚠️ Hash calculation failed: {hash_error}"
 
+        # 3D generation using SHARP
+        ply_path = None
+        has_3d = False
+        if enable_3d:
+            progress(0.95, desc="Generating 3D model...")
+            from utils.sharp_integration import run_sharp_inference, check_sharp_available
+            is_available, msg = check_sharp_available()
+            if is_available:
+                ply_path = run_sharp_inference(saved_path, OUTPUT_DIR)
+                if ply_path:
+                    info += f"\n🎯 3D Model: {os.path.basename(ply_path)}"
+                    has_3d = True
+                else:
+                    info += f"\n⚠️ 3D generation failed"
+            else:
+                info += f"\n⚠️ SHARP not available: {msg}"
+
         progress(1.0, desc="Complete!")
         state_manager.set_state(GenerationState.COMPLETED)
 
-        return saved_path, info, str(final_seed)
+        # Return with 3D model info
+        return (
+            saved_path,
+            info,
+            str(final_seed),
+            ply_path,
+            gr.update(visible=has_3d, value="3D Model" if has_3d else "2D Image"),
+            has_3d
+        )
 
     except GenerationInterruptedError:
         state_manager.set_state(GenerationState.INTERRUPTED)
-        return None, "⚠️ Generation interrupted", seed
+        return None, "⚠️ Generation interrupted", seed, None, gr.update(visible=False), False
     except InvalidParameterError as e:
         state_manager.set_state(GenerationState.ERROR)
         logger.error(f"Generation failed (invalid parameter): {e}")
-        return None, f"❌ {str(e)}", seed
+        return None, f"❌ {str(e)}", seed, None, gr.update(visible=False), False
     except (IOError, OSError) as e:
         state_manager.set_state(GenerationState.ERROR)
         error_msg = get_user_friendly_error(e)
         logger.error(f"Generation failed (file error): {e}")
-        return None, f"❌ Generation failed: {error_msg}", seed
+        return None, f"❌ Generation failed: {error_msg}", seed, None, gr.update(visible=False), False
     except (RuntimeError, ValueError) as e:
         state_manager.set_state(GenerationState.ERROR)
         error_msg = get_user_friendly_error(e)
         logger.error(f"Generation failed (runtime/validation error): {e}")
-        return None, f"❌ Generation failed: {error_msg}", seed
+        return None, f"❌ Generation failed: {error_msg}", seed, None, gr.update(visible=False), False
     except Exception as e:
         state_manager.set_state(GenerationState.ERROR)
         error_msg = get_user_friendly_error(e)
         logger.error(f"Unexpected error during generation: {e}")
-        return None, f"❌ Generation failed: {error_msg}", seed
+        return None, f"❌ Generation failed: {error_msg}", seed, None, gr.update(visible=False), False

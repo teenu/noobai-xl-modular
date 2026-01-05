@@ -104,12 +104,20 @@ class ControlNetConfig:
     MIN_POSE_DIMENSION: int = 64
     MAX_POSE_DIMENSION: int = 4096
 
+@dataclass
+class SharpConfig:
+    """SHARP 3D model generation configuration."""
+    CHECKPOINT_NAME: str = "sharp_2572gikvuh.pt"
+    DEFAULT_CACHE_DIR: str = os.path.expanduser("~/.cache/torch/hub/checkpoints/")
+    TIMEOUT_SECONDS: int = 120
+
 # Create configuration instances
 MODEL_CONFIG = ModelConfig()
 GEN_CONFIG = GenerationConfig()
 SEARCH_CONFIG = SearchConfig()
 PROMPT_CONFIG = PromptConfig()
 CONTROLNET_CONFIG = ControlNetConfig()
+SHARP_CONFIG = SharpConfig()
 
 # Output directory for generated images
 # Use 'outputs' subdirectory in script location for persistent storage
