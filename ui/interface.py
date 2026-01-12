@@ -249,6 +249,15 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                         )
 
                 # Generation parameters
+                # Determine initial values based on DoRA state
+                # When DoRA is enabled by default, use DORA_NONE_MODE_SETTINGS
+                # This fixes the bug where Gradio's .change() event doesn't fire for initial values
+                initial_cfg = DORA_NONE_MODE_SETTINGS['cfg_scale'] if default_enable_dora else OPTIMAL_SETTINGS['cfg_scale']
+                initial_rescale = DORA_NONE_MODE_SETTINGS['rescale_cfg'] if default_enable_dora else OPTIMAL_SETTINGS['rescale_cfg']
+                initial_steps = DORA_NONE_MODE_SETTINGS['steps'] if default_enable_dora else OPTIMAL_SETTINGS['steps']
+                initial_dora_start = DORA_NONE_MODE_SETTINGS['dora_start_step'] if default_enable_dora else OPTIMAL_SETTINGS['dora_start_step']
+                initial_adapter_strength = DORA_NONE_MODE_SETTINGS['adapter_strength'] if default_enable_dora else OPTIMAL_SETTINGS['adapter_strength']
+
                 with gr.Group():
                     gr.HTML("<h4>⚙️ Parameters</h4>")
                     with gr.Row():
@@ -258,7 +267,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                                 minimum=GEN_CONFIG.MIN_CFG_SCALE,
                                 maximum=GEN_CONFIG.MAX_CFG_SCALE,
                                 step=0.1,
-                                value=OPTIMAL_SETTINGS['cfg_scale']
+                                value=initial_cfg
                             )
                             cfg_status = gr.HTML('<div style="color: green;">✅ Optimal</div>')
 
@@ -268,7 +277,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                                 minimum=GEN_CONFIG.MIN_RESCALE_CFG,
                                 maximum=GEN_CONFIG.MAX_RESCALE_CFG,
                                 step=0.05,
-                                value=OPTIMAL_SETTINGS['rescale_cfg']
+                                value=initial_rescale
                             )
                             rescale_status = gr.HTML('<div style="color: green;">✅ Optimal</div>')
 
@@ -278,7 +287,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                                 minimum=MODEL_CONFIG.MIN_ADAPTER_STRENGTH,
                                 maximum=MODEL_CONFIG.MAX_ADAPTER_STRENGTH,
                                 step=0.1,
-                                value=OPTIMAL_SETTINGS['adapter_strength'],
+                                value=initial_adapter_strength,
                                 visible=default_enable_dora,
                                 info="Control DoRA adapter influence"
                             )
@@ -290,14 +299,20 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                             dora_start_step = gr.Slider(
                                 label="🚀 DoRA Start Step",
                                 minimum=MODEL_CONFIG.MIN_DORA_START_STEP,
-                                maximum=min(OPTIMAL_SETTINGS['steps'], MODEL_CONFIG.MAX_DORA_START_STEP),
+                                maximum=min(initial_steps, MODEL_CONFIG.MAX_DORA_START_STEP),
                                 step=1,
-                                value=OPTIMAL_SETTINGS['dora_start_step'],
+                                value=initial_dora_start,
                                 visible=default_enable_dora,
                                 info="Step at which DoRA adapter activates (0 = first step)"
                             )
+                            # Set initial status based on DoRA mode
+                            initial_dora_status = (
+                                f'<div style="color: green;">✅ Start at step {initial_dora_start} (DoRA None mode optimal)</div>'
+                                if default_enable_dora and initial_dora_start > 0
+                                else '<div style="color: green;">✅ Start at step 0 (first step)</div>'
+                            )
                             dora_start_step_status = gr.HTML(
-                                '<div style="color: green;">✅ Start at step 0 (first step)</div>',
+                                initial_dora_status,
                                 visible=default_enable_dora
                             )
 
@@ -329,7 +344,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                         minimum=GEN_CONFIG.MIN_STEPS,
                         maximum=GEN_CONFIG.MAX_STEPS,
                         step=1,
-                        value=OPTIMAL_SETTINGS['steps']
+                        value=initial_steps
                     )
                     steps_status = gr.HTML('<div style="color: green;">✅ Optimal</div>')
 

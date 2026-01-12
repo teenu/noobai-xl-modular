@@ -4,7 +4,7 @@ import os
 import gc
 from threading import Lock
 from typing import Optional, Tuple, List
-from config import logger, OPTIMAL_SETTINGS, MODEL_SEARCH_PATHS
+from config import logger, OPTIMAL_SETTINGS, MODEL_SEARCH_PATHS, DORA_NONE_MODE_SETTINGS
 from state import state_manager, GenerationState, resource_pool
 from utils import (
     validate_model_path, validate_dora_path, discover_dora_adapters,
@@ -179,11 +179,17 @@ def initialize_engine(model_path: str, enable_dora: bool = False, dora_path: str
                     else:
                         dora_status = "\n⚠️ DoRA: Enabled but no valid DoRA file found"
 
+            # Use DORA_NONE_MODE_SETTINGS for dora_start_step when DoRA is enabled
+            # This ensures the engine is initialized with the correct default for DoRA None mode
+            initial_dora_start_step = (
+                DORA_NONE_MODE_SETTINGS['dora_start_step'] if enable_dora
+                else OPTIMAL_SETTINGS['dora_start_step']
+            )
             engine = NoobAIEngine(
                 model_path=validated_model_path,
                 enable_dora=enable_dora,
                 dora_path=dora_path_to_use,
-                dora_start_step=OPTIMAL_SETTINGS['dora_start_step'],
+                dora_start_step=initial_dora_start_step,
                 force_fp32=force_fp32,
                 optimize=optimize
             )

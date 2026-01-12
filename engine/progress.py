@@ -80,7 +80,9 @@ class ProgressManager:
                 return self._handle_manual_toggle(step_index, current_step, steps, eta, next_step_index, manual_schedule)
 
         elif enable_dora and self.dora_manager.dora_loaded and self.pipe:
-            # Using 0-based indexing: step_index matches dora_start_step directly
+            # Diffusers callbacks run AFTER step completion. To have DoRA active during
+            # step N, we must activate at the end of step N-1. When dora_start_step=3,
+            # we activate at step_index=2 (end of step 2, before step 3 begins).
             if step_index == dora_start_step - 1 and dora_start_step > 0:
                 # Activate DoRA on the step before dora_start_step
                 self.pipe.set_adapters(["noobai_dora"], adapter_weights=[self.dora_manager.adapter_strength])

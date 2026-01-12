@@ -605,7 +605,7 @@ class NoobAIEngine:
                 metadata["dora_toggle_mode"] = dora_toggle_mode if dora_toggle_mode else "none"
             else:
                 metadata["adapter_strength"] = "0.0"
-                metadata["dora_start_step"] = "1"
+                metadata["dora_start_step"] = "0"  # Fixed: was incorrectly "1", should be "0" for disabled state
                 metadata["dora_toggle_mode"] = "none"
 
         # Add ControlNet metadata

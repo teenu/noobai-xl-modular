@@ -6,7 +6,7 @@ from PIL import Image
 from config import (
     logger, OPTIMAL_SETTINGS, MODEL_CONFIG, CONTROLNET_CONFIG, DEFAULT_NEGATIVE_PROMPT,
     DORA_SEARCH_DIRECTORIES, CONTROLNET_SEARCH_DIRECTORIES,
-    OPTIMIZED_DORA_SETTINGS, OPTIMIZED_DORA_SCHEDULE_CSV
+    OPTIMIZED_DORA_SETTINGS, OPTIMIZED_DORA_SCHEDULE_CSV, DORA_NONE_MODE_SETTINGS
 )
 from utils import (
     discover_dora_adapters, get_dora_adapter_by_name, validate_model_path,
@@ -205,6 +205,23 @@ def cli_generate(args):
             return 1
 
         manual_schedule_csv = None
+
+        # Apply DoRA None mode settings when DoRA is enabled without toggle mode
+        # This ensures CLI behavior matches GUI behavior for consistency
+        if args.enable_dora and not args.dora_toggle_mode:
+            none_opt = DORA_NONE_MODE_SETTINGS
+            # Only apply if user didn't explicitly override the default values
+            if args.steps == OPTIMAL_SETTINGS['steps']:
+                args.steps = none_opt['steps']
+            if args.cfg_scale == OPTIMAL_SETTINGS['cfg_scale']:
+                args.cfg_scale = none_opt['cfg_scale']
+            if args.rescale_cfg == OPTIMAL_SETTINGS['rescale_cfg']:
+                args.rescale_cfg = none_opt['rescale_cfg']
+            if args.dora_start_step == OPTIMAL_SETTINGS['dora_start_step']:
+                args.dora_start_step = none_opt['dora_start_step']
+            print(f"🎯 Using DoRA None mode (default):")
+            print(f"   Steps: {args.steps}, CFG: {args.cfg_scale}, Rescale: {args.rescale_cfg}, Start Step: {args.dora_start_step}")
+
         if args.enable_dora and args.dora_toggle_mode == "optimized":
             # Optimized mode: use predefined settings and schedule
             opt = OPTIMIZED_DORA_SETTINGS
