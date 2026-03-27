@@ -15,7 +15,7 @@ from config import (
 )
 from state import perf_monitor
 from utils import parse_manual_dora_schedule
-from engine.model_loader import detect_device, load_pipeline, create_controlnet_pipeline
+from engine.model_loader import detect_device, load_pipeline, create_controlnet_pipeline, is_sage_attention_active
 from engine.dora_manager import DoRAManager
 from engine.controlnet_manager import ControlNetManager
 from engine.progress import ProgressManager
@@ -63,6 +63,7 @@ class NoobAIEngine:
         self._cpu_offload_enabled = False
         self._dora_manager = None
         self._controlnet_manager = None
+        self._controlnet_pipe: Optional[StableDiffusionXLControlNetPipeline] = None  # Cached; rebuilt on CN load/switch
         self._progress_manager = None
         self._initialize(dora_path, controlnet_path)
 
@@ -89,6 +90,9 @@ class NoobAIEngine:
                 if controlnet_path:
                     if self._controlnet_manager.load_controlnet(controlnet_path):
                         self._controlnet_manager.set_conditioning_scale(self.controlnet_scale)
+                        self._controlnet_pipe = create_controlnet_pipeline(
+                            self._base_pipe, self._controlnet_manager.controlnet
+                        )
                         logger.info(f"ControlNet loaded with scale: {self.controlnet_scale}")
 
                 self._progress_manager = ProgressManager(self.pipe, self._device, self._dora_manager)
@@ -106,15 +110,24 @@ class NoobAIEngine:
                     if self._dora_manager.dora_loaded:
                         self._dora_manager.set_strength(self.adapter_strength)
 
-                # Apply torch.compile only when DoRA is not loaded
-                # PEFT adapters cause graph breaks incompatible with torch.compile
-                # TF32 speedup is still active regardless of compilation
+                # Apply torch.compile only when DoRA and SageAttention are not active.
+                # - DoRA (PEFT): causes graph breaks incompatible with torch.compile
+                # - SageAttention: custom processor is not compile-traceable
+                # TF32 speedup is always active regardless of compilation.
                 if self.optimize and self._device == "cuda":
                     if self._dora_manager.dora_loaded:
                         logger.info("Skipping torch.compile (incompatible with DoRA); TF32 still active")
+                    elif is_sage_attention_active():
+                        logger.info("Skipping torch.compile (incompatible with SageAttention); TF32 still active")
                     else:
-                        logger.info("Compiling UNet with torch.compile (first inference will be slower)...")
-                        self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead")
+                        logger.info("Compiling UNet with torch.compile max-autotune (first inference may take several minutes)...")
+                        self.pipe.unet = torch.compile(
+                            self.pipe.unet,
+                            backend="inductor",
+                            mode="max-autotune",
+                            fullgraph=False,
+                            dynamic=True,
+                        )
                         logger.info("UNet compiled successfully")
 
         except Exception as e:
@@ -202,20 +215,32 @@ class NoobAIEngine:
         return self._controlnet_manager.controlnet_path if self._controlnet_manager else None
 
     def load_controlnet(self, controlnet_path: str) -> bool:
-        """Load a ControlNet model."""
+        """Load a ControlNet model and build the cached pipeline."""
         if self._controlnet_manager:
-            return self._controlnet_manager.load_controlnet(controlnet_path)
+            success = self._controlnet_manager.load_controlnet(controlnet_path)
+            if success:
+                self._controlnet_pipe = create_controlnet_pipeline(
+                    self._base_pipe, self._controlnet_manager.controlnet
+                )
+            return success
         return False
 
     def unload_controlnet(self) -> None:
-        """Unload the current ControlNet model."""
+        """Unload the current ControlNet model and discard the cached pipeline."""
         if self._controlnet_manager:
             self._controlnet_manager.unload_controlnet()
+        self._controlnet_pipe = None
 
     def switch_controlnet(self, new_controlnet_path: str) -> bool:
-        """Switch to a different ControlNet model."""
+        """Switch to a different ControlNet model, rebuilding the cached pipeline."""
         if self._controlnet_manager:
-            return self._controlnet_manager.switch_controlnet(new_controlnet_path)
+            self._controlnet_pipe = None  # Discard before rebuild to free memory
+            success = self._controlnet_manager.switch_controlnet(new_controlnet_path)
+            if success:
+                self._controlnet_pipe = create_controlnet_pipeline(
+                    self._base_pipe, self._controlnet_manager.controlnet
+                )
+            return success
         return False
 
     def set_controlnet_scale(self, scale: float) -> float:
@@ -464,12 +489,8 @@ class NoobAIEngine:
                         pose_image, width, height
                     )
 
-                    if control_image is not None:
-                        # Create ControlNet pipeline for this generation
-                        active_pipe = create_controlnet_pipeline(
-                            self._base_pipe,
-                            self._controlnet_manager.controlnet
-                        )
+                    if control_image is not None and self._controlnet_pipe is not None:
+                        active_pipe = self._controlnet_pipe  # Use cached pipeline
                         logger.info(f"Using ControlNet with scale: {self.controlnet_scale}")
                     else:
                         logger.warning("Pose image preprocessing failed, falling back to standard generation")
@@ -522,14 +543,19 @@ class NoobAIEngine:
                 image = result.images[0]
                 metadata = self._create_image_metadata(
                     prompt, negative_prompt, seed, width, height, steps,
-                    cfg_scale, rescale_cfg, dora_toggle_mode, use_controlnet
+                    cfg_scale, rescale_cfg, dora_toggle_mode, use_controlnet,
+                    effective_dora_start_step
                 )
                 image.info = metadata
 
                 return image, seed, "\n".join(info_parts)
 
             finally:
-                clear_memory(self._device)
+                # Keep CUDA allocator hot between generations for throughput, but
+                # retain the old cleanup behavior on MPS/CPU where cache growth is
+                # more likely to hurt long-running sessions.
+                if self._device != "cuda":
+                    clear_memory(self._device)
 
     def _build_generation_info(self, steps: int, cfg_scale: float, width: int, height: int) -> list:
         """Build informational messages about generation parameters."""
@@ -581,7 +607,7 @@ class NoobAIEngine:
     def _create_image_metadata(
         self, prompt: str, negative_prompt: str, seed: int, width: int, height: int,
         steps: int, cfg_scale: float, rescale_cfg: float, dora_toggle_mode: Optional[str],
-        use_controlnet: bool = False
+        use_controlnet: bool = False, effective_dora_start_step: Optional[int] = None
     ) -> Dict[str, str]:
         metadata = {
             "prompt": prompt,
@@ -601,11 +627,13 @@ class NoobAIEngine:
             metadata["dora_path"] = os.path.basename(self._dora_manager.dora_path) if self._dora_manager.dora_path else "unknown"
             if self.enable_dora:
                 metadata["adapter_strength"] = str(self.adapter_strength)
-                metadata["dora_start_step"] = str(self.dora_start_step)
+                # Use effective start step (accounts for toggle mode overrides) if provided
+                start_step = effective_dora_start_step if effective_dora_start_step is not None else self.dora_start_step
+                metadata["dora_start_step"] = str(start_step)
                 metadata["dora_toggle_mode"] = dora_toggle_mode if dora_toggle_mode else "none"
             else:
                 metadata["adapter_strength"] = "0.0"
-                metadata["dora_start_step"] = "0"  # Fixed: was incorrectly "1", should be "0" for disabled state
+                metadata["dora_start_step"] = "0"
                 metadata["dora_toggle_mode"] = "none"
 
         # Add ControlNet metadata
@@ -649,6 +677,7 @@ class NoobAIEngine:
         finally:
             self.pipe = None
             self._base_pipe = None
+            self._controlnet_pipe = None
             self.is_initialized = False
 
     def clear_memory(self) -> None:

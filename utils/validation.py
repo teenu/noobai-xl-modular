@@ -227,12 +227,15 @@ def get_safe_csv_paths() -> Dict[str, str]:
             continue
 
         full_path = os.path.join(style_dir, safe_filename)
-        full_path_real = os.path.realpath(os.path.normpath(full_path))
 
-        if full_path_real.startswith(style_dir_real + os.sep) and os.path.isfile(full_path_real):
-            validated_paths[key] = full_path_real
+        # Use os.path.isfile (follows symlinks) rather than realpath + startswith.
+        # The directory-level security check above is sufficient; requiring the
+        # realpath of individual files to stay within style_dir would reject
+        # valid symlinks pointing to CSV files outside the repo tree.
+        if os.path.isfile(full_path):
+            validated_paths[key] = full_path
         else:
-            logger.debug(f"CSV file not found or outside safe directory: {safe_filename}")
+            logger.debug(f"CSV file not found: {safe_filename}")
 
     return validated_paths
 

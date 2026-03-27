@@ -120,9 +120,6 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
 
     with gr.Blocks(
         title="NoobAI XL V-Pred 1.0 (Hash Consistency Edition)",
-        theme=gr.themes.Soft(),
-        css=CSS_STYLES,
-        head=JAVASCRIPT_HEAD
     ) as demo:
 
         gr.HTML('<div class="title-text">🎯 NoobAI XL V-Pred 1.0 - Hash Consistency Edition</div>')

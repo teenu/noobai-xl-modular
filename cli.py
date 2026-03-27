@@ -176,6 +176,69 @@ def cli_generate(args):
                     print("Use --list-controlnets to see available models")
                     return 1
 
+        # Resolve DoRA mode-specific parameter defaults before engine construction.
+        # Argparse uses None defaults for steps/cfg/rescale/dora_start_step so we can
+        # distinguish "user explicitly set" from "user didn't provide" and apply the
+        # correct mode defaults only for unset params.
+        manual_schedule_csv = None
+
+        if args.enable_dora and not args.dora_toggle_mode:
+            # None mode: apply DORA_NONE_MODE_SETTINGS for params user didn't set
+            none_opt = DORA_NONE_MODE_SETTINGS
+            applied = []
+            if args.steps is None:
+                args.steps = none_opt['steps']
+                applied.append(f"Steps={args.steps}")
+            if args.cfg_scale is None:
+                args.cfg_scale = none_opt['cfg_scale']
+                applied.append(f"CFG={args.cfg_scale}")
+            if args.rescale_cfg is None:
+                args.rescale_cfg = none_opt['rescale_cfg']
+                applied.append(f"Rescale={args.rescale_cfg}")
+            if args.dora_start_step is None:
+                args.dora_start_step = none_opt['dora_start_step']
+                applied.append(f"StartStep={args.dora_start_step}")
+            if applied:
+                print(f"🎯 DoRA None mode defaults applied: {', '.join(applied)}")
+
+        elif args.enable_dora and args.dora_toggle_mode == "optimized":
+            opt = OPTIMIZED_DORA_SETTINGS
+            args.steps = opt['steps']
+            args.cfg_scale = opt['cfg_scale']
+            args.rescale_cfg = opt['rescale_cfg']
+            args.adapter_strength = opt['adapter_strength']
+            manual_schedule_csv = OPTIMIZED_DORA_SCHEDULE_CSV
+            print(f"🎯 Using Optimized DoRA mode:")
+            print(f"   Steps: {opt['steps']}, CFG: {opt['cfg_scale']}, Rescale: {opt['rescale_cfg']}, Strength: {opt['adapter_strength']}")
+            print(f"   Schedule: {len(opt['schedule'])} steps predefined")
+
+        elif args.enable_dora and args.dora_toggle_mode == "manual":
+            if args.steps is None:
+                args.steps = OPTIMAL_SETTINGS['steps']
+            if args.dora_manual_schedule:
+                manual_schedule, warning = parse_manual_dora_schedule(args.dora_manual_schedule, args.steps)
+                if warning:
+                    print(f"⚠️ {warning}")
+                if manual_schedule:
+                    manual_schedule_csv = args.dora_manual_schedule
+                    print(f"🎯 Using manual DoRA schedule ({len(manual_schedule)} steps)")
+                else:
+                    print("⚠️ Manual DoRA schedule is invalid - DoRA will be OFF for all steps")
+            else:
+                print("⚠️ Manual toggle mode selected but no schedule provided (--dora-manual-schedule)")
+                print("   DoRA will be OFF for all steps")
+
+        # Fill any remaining None params with standard defaults
+        if args.steps is None:
+            args.steps = OPTIMAL_SETTINGS['steps']
+        if args.cfg_scale is None:
+            args.cfg_scale = OPTIMAL_SETTINGS['cfg_scale']
+        if args.rescale_cfg is None:
+            args.rescale_cfg = OPTIMAL_SETTINGS['rescale_cfg']
+        if args.dora_start_step is None:
+            args.dora_start_step = OPTIMAL_SETTINGS['dora_start_step']
+
+        # Engine construction and validation now use fully resolved values
         engine = NoobAIEngine(
             model_path=path_or_error,
             enable_dora=args.enable_dora,
@@ -203,49 +266,6 @@ def cli_generate(args):
         if not prompt:
             print("❌ Please provide a prompt")
             return 1
-
-        manual_schedule_csv = None
-
-        # Apply DoRA None mode settings when DoRA is enabled without toggle mode
-        # This ensures CLI behavior matches GUI behavior for consistency
-        if args.enable_dora and not args.dora_toggle_mode:
-            none_opt = DORA_NONE_MODE_SETTINGS
-            # Only apply if user didn't explicitly override the default values
-            if args.steps == OPTIMAL_SETTINGS['steps']:
-                args.steps = none_opt['steps']
-            if args.cfg_scale == OPTIMAL_SETTINGS['cfg_scale']:
-                args.cfg_scale = none_opt['cfg_scale']
-            if args.rescale_cfg == OPTIMAL_SETTINGS['rescale_cfg']:
-                args.rescale_cfg = none_opt['rescale_cfg']
-            if args.dora_start_step == OPTIMAL_SETTINGS['dora_start_step']:
-                args.dora_start_step = none_opt['dora_start_step']
-            print(f"🎯 Using DoRA None mode (default):")
-            print(f"   Steps: {args.steps}, CFG: {args.cfg_scale}, Rescale: {args.rescale_cfg}, Start Step: {args.dora_start_step}")
-
-        if args.enable_dora and args.dora_toggle_mode == "optimized":
-            # Optimized mode: use predefined settings and schedule
-            opt = OPTIMIZED_DORA_SETTINGS
-            args.steps = opt['steps']
-            args.cfg_scale = opt['cfg_scale']
-            args.rescale_cfg = opt['rescale_cfg']
-            args.adapter_strength = opt['adapter_strength']
-            manual_schedule_csv = OPTIMIZED_DORA_SCHEDULE_CSV
-            print(f"🎯 Using Optimized DoRA mode:")
-            print(f"   Steps: {opt['steps']}, CFG: {opt['cfg_scale']}, Rescale: {opt['rescale_cfg']}, Strength: {opt['adapter_strength']}")
-            print(f"   Schedule: {len(opt['schedule'])} steps predefined")
-        elif args.enable_dora and args.dora_toggle_mode == "manual":
-            if args.dora_manual_schedule:
-                manual_schedule, warning = parse_manual_dora_schedule(args.dora_manual_schedule, args.steps)
-                if warning:
-                    print(f"⚠️ {warning}")
-                if manual_schedule:
-                    manual_schedule_csv = args.dora_manual_schedule
-                    print(f"🎯 Using manual DoRA schedule ({len(manual_schedule)} steps)")
-                else:
-                    print("⚠️ Manual DoRA schedule is invalid - DoRA will be OFF for all steps")
-            else:
-                print("⚠️ Manual toggle mode selected but no schedule provided (--dora-manual-schedule)")
-                print("   DoRA will be OFF for all steps")
 
         # Load pose image if provided
         pose_image = None
@@ -388,18 +408,18 @@ def parse_args():
     cli_group.add_argument("--negative-prompt", type=str, default=DEFAULT_NEGATIVE_PROMPT, help="Negative prompt")
     cli_group.add_argument("--width", type=int, help=f"Image width (default: {OPTIMAL_SETTINGS['width']})")
     cli_group.add_argument("--height", type=int, help=f"Image height (default: {OPTIMAL_SETTINGS['height']})")
-    cli_group.add_argument("--steps", type=int, default=OPTIMAL_SETTINGS['steps'],
-                          help=f"Inference steps (default: {OPTIMAL_SETTINGS['steps']})")
-    cli_group.add_argument("--cfg-scale", type=float, default=OPTIMAL_SETTINGS['cfg_scale'],
-                          help=f"CFG scale (default: {OPTIMAL_SETTINGS['cfg_scale']})")
-    cli_group.add_argument("--rescale-cfg", type=float, default=OPTIMAL_SETTINGS['rescale_cfg'],
-                          help=f"Rescale CFG (default: {OPTIMAL_SETTINGS['rescale_cfg']})")
+    cli_group.add_argument("--steps", type=int, default=None,
+                          help=f"Inference steps (default: {OPTIMAL_SETTINGS['steps']}, {DORA_NONE_MODE_SETTINGS['steps']} with DoRA)")
+    cli_group.add_argument("--cfg-scale", type=float, default=None,
+                          help=f"CFG scale (default: {OPTIMAL_SETTINGS['cfg_scale']}, {DORA_NONE_MODE_SETTINGS['cfg_scale']} with DoRA)")
+    cli_group.add_argument("--rescale-cfg", type=float, default=None,
+                          help=f"Rescale CFG (default: {OPTIMAL_SETTINGS['rescale_cfg']}, {DORA_NONE_MODE_SETTINGS['rescale_cfg']} with DoRA)")
     cli_group.add_argument("--seed", type=int, help="Seed for generation (random if not specified)")
     cli_group.add_argument("--output", type=str, help="Output file path (default: noobai_<seed>.png)")
     cli_group.add_argument("--adapter-strength", type=float, default=OPTIMAL_SETTINGS['adapter_strength'],
                           help=f"DoRA strength (default: {OPTIMAL_SETTINGS['adapter_strength']}, range: {MODEL_CONFIG.MIN_ADAPTER_STRENGTH}-{MODEL_CONFIG.MAX_ADAPTER_STRENGTH})")
-    cli_group.add_argument("--dora-start-step", type=int, default=OPTIMAL_SETTINGS['dora_start_step'],
-                          help=f"DoRA activation step (default: {OPTIMAL_SETTINGS['dora_start_step']})")
+    cli_group.add_argument("--dora-start-step", type=int, default=None,
+                          help=f"DoRA activation step (default: {OPTIMAL_SETTINGS['dora_start_step']}, {DORA_NONE_MODE_SETTINGS['dora_start_step']} with DoRA)")
     cli_group.add_argument("--dora-toggle-mode", type=str, choices=["manual", "optimized"],
                           help="DoRA toggle mode: manual (custom schedule) or optimized (pre-tuned 34-step schedule)")
     cli_group.add_argument("--dora-manual-schedule", type=str,

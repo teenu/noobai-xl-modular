@@ -5,7 +5,7 @@
 # ============================================================================
 # PYTORCH - Install FIRST, separately (platform-specific)
 # ============================================================================
-# NVIDIA RTX 50xx (Blackwell) - CUDA 12.8:
+# NVIDIA RTX 50xx (Blackwell) - CUDA 12.8 (requires PyTorch 2.7+ for sm_120 support):
 #   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 #
 # NVIDIA RTX 30xx/40xx (Ampere/Ada) - CUDA 12.4:
@@ -24,15 +24,16 @@
 # ============================================================================
 
 # Core ML Framework
-torch>=2.0.0,<3.0.0
+# 2.7+ required for Blackwell (sm_120) native support and CUDA 12.8 compute capability
+torch>=2.7.0,<3.0.0
 
 # Diffusion Models and Pipeline
-diffusers>=0.30.0,<0.32.0
+diffusers>=0.30.0,<0.40.0
 transformers>=4.40.0,<5.0.0
 
 # CPU Offloading for Low-VRAM GPUs
 # Required for sequential CPU offloading (enables inference on 6GB GPUs)
-accelerate>=0.21.0,<1.0.0
+accelerate>=0.21.0,<2.0.0
 
 # DoRA Adapter Support
 # Required for loading DoRA (Weight-Decomposed Low-Rank Adaptation) adapters
@@ -43,9 +44,8 @@ peft>=0.12.0,<1.0.0
 # Install from GitHub: pip install git+https://github.com/xhinker/sd_embed.git@main
 sd_embed @ git+https://github.com/xhinker/sd_embed.git@main
 
-# Web Interface (Gradio 4.x - DO NOT upgrade to 5.x or 6.x)
-# Gradio 5.x+ has breaking changes: removed params, SSR mode, proxy issues
-gradio>=4.0.0,<5.0.0
+# Web Interface
+gradio>=4.0.0,<7.0.0
 
 # Image Processing
 pillow>=10.0.0,<12.0.0
@@ -57,24 +57,35 @@ safetensors>=0.4.0,<1.0.0
 pandas>=2.0.0,<3.0.0
 
 # Additional dependencies (auto-installed but specified for clarity)
-huggingface-hub>=0.20.0,<1.0.0
-numpy>=1.24.0,<2.0.0
+huggingface-hub>=0.20.0,<2.0.0
+numpy>=1.24.0,<3.0.0
 
-# Pydantic constraint for Gradio 4.x compatibility
-# pydantic 2.11+ causes "TypeError: argument of type 'bool' is not iterable" in gradio_client
+# Pydantic constraint - conservative upper bound, bug status in newer gradio untested
 pydantic>=2.0.0,<2.11.0
+
+# ============================================================================
+# OPTIONAL PERFORMANCE PACKAGES
+# ============================================================================
+#
+# SageAttention - ~5x attention speedup on RTX 5090 (Blackwell sm_120)
+# Uses FP4 microscaling on Blackwell tensor cores. Incompatible with
+# torch.compile (--optimize flag) — choose one or the other.
+# Requires CUDA 12.8 + PyTorch 2.7+. Install separately:
+#   pip install sageattention
+# sageattention>=2.0.0  # uncomment if desired
 
 # ============================================================================
 # VERSION CONSTRAINTS (IMPORTANT - DO NOT REMOVE)
 # ============================================================================
 # Upper bounds prevent breaking changes from newer package versions:
 #
-# - diffusers<0.32.0: VAE API changes in 0.32+ break compatibility
-# - accelerate<1.0.0: API restructuring in 1.0 causes import errors
-# - huggingface-hub<1.0.0: Breaking changes in 1.0
-# - numpy<2.0.0: ABI incompatibility with PyTorch <2.3.1
-# - gradio<5.0.0: Breaking changes (removed params, SSR mode, proxy issues)
-# - pydantic<2.11.0: Bug in gradio_client with pydantic 2.11+ causes TypeError
+# - torch>=2.7.0: Minimum for Blackwell (sm_120) native CUDA 12.8 support
+# - diffusers<0.40.0: Tested up to 0.37.0; watch for decode() API changes above 0.40
+# - accelerate<2.0.0: Tested up to 1.13.0; watch for 2.0 API restructuring
+# - huggingface-hub<2.0.0: Tested up to 1.x; required by diffusers 0.37+
+# - numpy<3.0.0: PyTorch 2.3.1+ is compatible with numpy 2.x
+# - gradio<7.0.0: Tested up to 6.9.0
+# - pydantic<2.11.0: Bug status with gradio 6.x untested; conservative bound maintained
 #
 # These constraints have been tested for stability. To upgrade to newer
 # versions, test thoroughly in a separate environment first.
@@ -89,7 +100,7 @@ pydantic>=2.0.0,<2.11.0
 #
 # 2. Install PyTorch with appropriate CUDA version for your GPU:
 #
-#    RTX 5090 (Blackwell) - requires PyTorch 2.9+:
+#    RTX 5090 (Blackwell) - requires PyTorch 2.7+ for sm_120 native support:
 #    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 #
 #    RTX 30xx/40xx (Ampere/Ada):
