@@ -142,9 +142,9 @@ rm -rf assets
 | Asset | Size | Required? |
 |-------|------|-----------|
 | `NoobAI-XL-Vpred-v1.0.safetensors` | 6.7 GB | Yes |
+| `dora/*.safetensors` | 108 MB | Yes |
+| `style/*.csv` | 109 MB | Yes |
 | `controlnet/openpose_fp32.safetensors` | 4.7 GB | Optional (pose control) |
-| `dora/*.safetensors` | 108 MB | Optional (anatomical accuracy) |
-| `style/*.csv` | 109 MB | Optional (character/artist search) |
 | `poses/*.png` | 140 KB | Optional (example poses) |
 
 **Model format notes:**
