@@ -1,5 +1,7 @@
 # NoobAI XL V-Pred 1.0 - Modular Implementation
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?style=for-the-badge&logo=github)](https://github.com/sponsors/teenu)
+
 Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimization, DoRA adapter support, and interactive prompt formatting.
 
 ## ⚠️ Critical: Supported Model Formats
@@ -435,4 +437,4 @@ This is a known Windows-specific issue where pip's cache can become corrupted du
 
 ## License
 
-See repository for license information.
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).

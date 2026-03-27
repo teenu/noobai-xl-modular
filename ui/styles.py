@@ -66,6 +66,22 @@ CSS_STYLES = """
     margin-bottom: 8px;
     display: inline-block;
 }
+.sponsor-link {
+    font-size: 0.55em;
+    font-weight: normal;
+    margin-top: 4px;
+}
+.sponsor-link a {
+    color: #db61a2;
+    text-decoration: none;
+    padding: 3px 10px;
+    border: 1px solid #db61a2;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+.sponsor-link a:hover {
+    background: rgba(219, 97, 162, 0.1);
+}
 """
 
 JAVASCRIPT_HEAD = """

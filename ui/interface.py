@@ -123,7 +123,12 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
         title="NoobAI XL V-Pred 1.0 (Hash Consistency Edition)",
     ) as demo:
 
-        gr.HTML('<div class="title-text">🎯 NoobAI XL V-Pred 1.0 - Hash Consistency Edition</div>')
+        gr.HTML(
+            '<div class="title-text">🎯 NoobAI XL V-Pred 1.0 - Hash Consistency Edition'
+            '<div class="sponsor-link">'
+            '<a href="https://github.com/sponsors/teenu" target="_blank" rel="noopener">&#9829; Sponsor</a>'
+            '</div></div>'
+        )
 
         with gr.Row():
             with gr.Column(scale=2):
