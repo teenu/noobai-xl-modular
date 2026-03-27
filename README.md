@@ -142,7 +142,7 @@ rm -rf assets
 | Asset | Size | Required? |
 |-------|------|-----------|
 | `NoobAI-XL-Vpred-v1.0.safetensors` | 6.7 GB | Yes |
-| `dora/*.safetensors` | 108 MB | Yes |
+| `dora/*.safetensors` | 108 MB | Yes (v0.271 recommended) |
 | `style/*.csv` | 109 MB | Yes |
 | `controlnet/openpose_fp32.safetensors` | 4.7 GB | Optional (pose control) |
 | `poses/*.png` | 140 KB | Optional (example poses) |
@@ -278,7 +278,7 @@ noobai-xl-modular/
 - Steps: 35
 - CFG Scale: 4.5
 - Rescale CFG: 0.7
-- DoRA: Enabled (v0.280a recommended)
+- DoRA: Enabled (v0.271 recommended)
 
 **For faster generation (6GB VRAM GPUs):**
 - Resolution: 768x1024 or 1024x768
