@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4CGT — 四彫画匠 (Shichō Gashō)</title>
+<meta name="description" content="Master Artisan of Sculpted Art. Quality-engineered anime image generation with cross-platform determinism, DoRA anatomical accuracy, and integrated 2D-to-3D conversion.">
+<meta property="og:title" content="4CGT — 四彫画匠">
+<meta property="og:description" content="Master Artisan of Sculpted Art. Quality-engineered anime image generation.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://4cgt.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;
+  --surface:#12121a;
+  --border:#1e1e2e;
+  --text:#e0e0e8;
+  --muted:#6b6b80;
+  --accent:#db61a2;
+  --accent-dim:rgba(219,97,162,0.12);
+  --blue:#6b8afd;
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.6;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+.noise{
+  position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.container{
+  max-width:900px;margin:0 auto;padding:0 24px;position:relative;z-index:1;
+}
+
+/* Hero */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;text-align:center;
+  padding:60px 24px;
+}
+.kanji{
+  font-family:'Noto Serif JP',serif;font-size:clamp(64px,12vw,120px);
+  font-weight:700;letter-spacing:0.08em;line-height:1.1;
+  background:linear-gradient(135deg,#e0e0e8 0%,#a0a0b8 50%,#e0e0e8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:8px;
+}
+.brand{
+  font-size:clamp(20px,4vw,32px);font-weight:600;
+  letter-spacing:0.15em;color:var(--muted);margin-bottom:4px;
+}
+.romanji{
+  font-family:'Noto Serif JP',serif;
+  font-size:clamp(14px,2.5vw,18px);color:var(--muted);
+  letter-spacing:0.2em;margin-bottom:32px;
+}
+.tagline{
+  font-size:clamp(16px,2.5vw,20px);font-weight:300;
+  color:var(--text);max-width:560px;margin-bottom:48px;
+  opacity:0.85;
+}
+.cta-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 28px;border-radius:8px;font-size:15px;
+  font-weight:500;text-decoration:none;transition:all 0.2s;
+}
+.btn-primary{
+  background:var(--text);color:var(--bg);
+}
+.btn-primary:hover{background:#fff;transform:translateY(-1px)}
+.btn-sponsor{
+  border:1px solid var(--accent);color:var(--accent);background:transparent;
+}
+.btn-sponsor:hover{background:var(--accent-dim);transform:translateY(-1px)}
+.btn svg{width:18px;height:18px;fill:currentColor}
+
+/* Divider */
+.divider{
+  width:60px;height:1px;background:var(--border);margin:80px auto;
+}
+
+/* Pillars */
+.section{padding:0 24px 100px}
+.section-title{
+  text-align:center;font-size:14px;font-weight:500;
+  letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:48px;
+}
+.pillars{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:24px;max-width:900px;margin:0 auto;
+}
+.pillar{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:28px 24px;
+  transition:border-color 0.3s;
+}
+.pillar:hover{border-color:#2e2e42}
+.pillar-kanji{
+  font-family:'Noto Serif JP',serif;font-size:28px;
+  margin-bottom:12px;line-height:1;
+}
+.pillar h3{font-size:15px;font-weight:600;margin-bottom:8px}
+.pillar p{font-size:13px;color:var(--muted);line-height:1.5}
+
+/* Features */
+.features{
+  max-width:900px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:20px;
+}
+.feature{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:24px;
+}
+.feature h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.feature p{font-size:13px;color:var(--muted);line-height:1.5}
+
+/* Footer */
+footer{
+  text-align:center;padding:48px 24px;
+  border-top:1px solid var(--border);color:var(--muted);font-size:13px;
+}
+footer a{color:var(--accent);text-decoration:none}
+footer a:hover{text-decoration:underline}
+.footer-kanji{
+  font-family:'Noto Serif JP',serif;font-size:20px;
+  color:var(--border);margin-bottom:12px;
+}
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<section class="hero">
+  <div class="brand">4CGT</div>
+  <div class="kanji">四彫画匠</div>
+  <div class="romanji">Shich&#333; Gash&#333;</div>
+  <p class="tagline">Master Artisan of Sculpted Art &mdash; quality-engineered anime image generation with cross-platform determinism and integrated 2D&#8209;to&#8209;3D conversion.</p>
+  <div class="cta-row">
+    <a href="https://github.com/teenu/4cgt" class="btn btn-primary">
+      <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+    <a href="https://github.com/sponsors/teenu" class="btn btn-sponsor">
+      <svg viewBox="0 0 16 16"><path d="M4.25 2.5c-1.336 0-2.75 1.164-2.75 3 0 2.15 1.58 4.144 3.365 5.682A20.565 20.565 0 008 13.393a20.561 20.561 0 003.135-2.211C12.92 9.644 14.5 7.65 14.5 5.5c0-1.836-1.414-3-2.75-3-1.373 0-2.609.986-3.029 2.456a.749.749 0 01-1.442 0C6.859 3.486 5.623 2.5 4.25 2.5z"/></svg>
+      Sponsor
+    </a>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section class="section">
+  <div class="container">
+    <div class="section-title">The Four Pillars &mdash; 四つの柱</div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-kanji">精</div>
+        <h3>Anatomical Accuracy</h3>
+        <p>DoRA weight-decomposed adapters trained specifically for v-prediction. Mathematically optimized CFG scales for zero terminal SNR.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-kanji">誠</div>
+        <h3>Prompt Fidelity</h3>
+        <p>Long prompt support beyond the 77-token CLIP limit. Up to 600 tokens with A1111-compatible weight syntax.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-kanji">鮮</div>
+        <h3>Image Quality</h3>
+        <p>Lossless FP32 VAE pipeline. FP16 rejected by design. BF16/FP32 only &mdash; no lossy quantization, ever.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-kanji">定</div>
+        <h3>Deterministic Output</h3>
+        <p>Same seed, same image hash &mdash; macOS, Windows, Linux. CPU RNG, enforced deterministic algorithms, cross-platform parity.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-title">Capabilities</div>
+    <div class="features">
+      <div class="feature">
+        <h3>2D &rarr; 3D Pipeline</h3>
+        <p>Integrated Apple Sharp image-to-3D Gaussian Splat conversion. Sub-second inference with optional camera-trajectory video render.</p>
+      </div>
+      <div class="feature">
+        <h3>ControlNet Pose</h3>
+        <p>OpenPose skeleton conditioning optimized for v-prediction models. Higher conditioning scales for proper pose adherence.</p>
+      </div>
+      <div class="feature">
+        <h3>DoRA Stabilizers</h3>
+        <p>Three modes: None (optimal defaults), Optimized (preset-locked 34-step schedule), and Manual (per-step binary control).</p>
+      </div>
+      <div class="feature">
+        <h3>Gradio UI + CLI</h3>
+        <p>Web interface with character/artist autocomplete from Danbooru and e621. Full CLI for batch generation and scripting.</p>
+      </div>
+      <div class="feature">
+        <h3>Broad GPU Support</h3>
+        <p>RTX 5090 (Blackwell) to GTX 1060. Apple Silicon native. Automatic CPU offloading for GPUs under 8GB VRAM.</p>
+      </div>
+      <div class="feature">
+        <h3>Open Source</h3>
+        <p>AGPL-3.0 licensed. Free to use, modify, and distribute. Built on NoobAI XL V-Pred 1.0.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-kanji">四彫画匠</div>
+  <p>4CGT &mdash; <a href="https://github.com/teenu/4cgt">GitHub</a> &middot; <a href="https://github.com/sponsors/teenu">Sponsor</a> &middot; AGPL-3.0</p>
+</footer>
+</body>
+</html>
