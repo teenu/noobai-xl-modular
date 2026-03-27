@@ -39,11 +39,8 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # Install dependencies
 pip install -r requirements.txt
 
-# Download model + assets from Hugging Face
-pip install huggingface-hub
-huggingface-cli download epigene/4cgt --local-dir assets
-mv assets/NoobAI-XL-Vpred-v1.0.safetensors . && mv assets/dora/* dora/ && mv assets/style/* style/
-rm -rf assets
+# Download assets (see table below for sources)
+# Then place them: model in repo root, adapters in dora/, CSVs in style/
 
 # Launch
 python main.py
@@ -62,15 +59,16 @@ python main.py --cli \
 
 ## Assets
 
-All hosted on [Hugging Face](https://huggingface.co/epigene/4cgt):
+4CGT requires third-party model assets. Download from their original sources:
 
-| Asset | Size | Required |
-|-------|------|----------|
-| `NoobAI-XL-Vpred-v1.0.safetensors` | 6.7 GB | Yes |
-| `dora/*.safetensors` | 108 MB | Yes (v0.271 recommended) |
-| `style/*.csv` | 109 MB | Yes |
-| `controlnet/openpose_fp32.safetensors` | 4.7 GB | Optional (pose control) |
-| `poses/*.png` | 140 KB | Optional (examples) |
+| Asset | Source | Required |
+|-------|--------|----------|
+| NoobAI XL V-Pred 1.0 (BF16, 6.7 GB) | [Laxhar/noobai-XL-Vpred-1.0](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0) | Yes — place in repo root |
+| DoRA stabilizers (v0.271 recommended) | [Civitai: reakaakasky](https://civitai.com/models/971952) | Yes — place in `dora/` |
+| Style CSVs (Danbooru + e621) | [Laxhar/noob-wiki](https://huggingface.co/datasets/Laxhar/noob-wiki) | Yes — place in `style/` |
+| ControlNet OpenPose SDXL | [xinsir/controlnet-openpose-sdxl-1.0](https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0) | Optional — place in `controlnet/` |
+
+These assets carry their own licenses. See each source for terms.
 
 ## How it works
 
