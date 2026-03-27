@@ -416,18 +416,25 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                     generation_info = gr.Textbox(label="Generation Info", lines=9, interactive=False)
 
                 _sharp_available = is_sharp_installed()
-                with gr.Group(visible=_sharp_available):
+                with gr.Group():
                     gr.HTML("<h3>🎲 Image to 3D (Apple Sharp)</h3>")
                     with gr.Row():
                         to_3d_render = gr.Checkbox(
                             label="Render video",
                             value=False,
-                            info="Render a camera-trajectory .mp4 after conversion (CUDA only)"
+                            info="Render a camera-trajectory .mp4 after conversion (CUDA only)",
+                            visible=_sharp_available,
                         )
                         to_3d_btn = gr.Button(
                             "Convert to 3D",
                             variant="secondary",
                             interactive=False,  # enabled once an image is generated
+                            visible=_sharp_available,
+                        )
+                    if not _sharp_available:
+                        gr.HTML(
+                            "<div style='color:#888; font-size:0.85em;'>Sharp not installed — "
+                            "<code>pip install git+https://github.com/apple/ml-sharp.git --no-deps</code></div>"
                         )
                     to_3d_status = gr.Textbox(
                         label="3D Status",
@@ -435,6 +442,7 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                               else "Sharp not installed.",
                         interactive=False,
                         lines=2,
+                        visible=_sharp_available,
                     )
                     to_3d_ply = gr.File(
                         label="3D Gaussian Splat (.ply)",
@@ -445,12 +453,6 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
                         label="Rendered Video",
                         visible=False,
                         interactive=False,
-                    )
-
-                if not _sharp_available:
-                    gr.HTML(
-                        "<div style='color:#888; font-size:0.85em;'>Sharp not installed — "
-                        "<code>pip install git+https://github.com/apple/ml-sharp.git --no-deps</code></div>"
                     )
 
         with gr.Row():

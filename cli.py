@@ -339,7 +339,7 @@ def cli_generate(args):
             result_3d = convert_to_3d(
                 image_path=saved_path,
                 output_name=output_name,
-                device="cuda" if not args.force_fp32 else "cpu",
+                device="cuda",
                 render=getattr(args, 'to_3d_render', False),
                 checkpoint_path=getattr(args, 'sharp_checkpoint', None),
             )

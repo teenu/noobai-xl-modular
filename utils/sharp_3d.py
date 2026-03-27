@@ -67,25 +67,36 @@ def _build_render_env() -> dict:
                 os.path.isfile(os.path.join(inc, "crt", "host_config.h"))):
             return env  # caller-supplied CUDA_HOME is already valid
 
-    # Prefer conda's targets/<arch>/include/ — it has the full header tree.
+    # Candidate include directories to search, in preference order:
+    #  1. conda's targets/<arch>/include/ — full header tree including crt/
+    #  2. common system CUDA toolkit paths
+    candidates = []
     for arch in ("x86_64-linux", "sbsa-linux", "aarch64-linux"):
-        targets_inc = os.path.join(conda_root, "targets", arch, "include")
-        if not os.path.isfile(os.path.join(targets_inc, "cuda_runtime.h")):
+        candidates.append(os.path.join(conda_root, "targets", arch, "include"))
+    for sys_path in ("/usr/local/cuda/include", "/usr/cuda/include"):
+        candidates.append(sys_path)
+
+    for inc in candidates:
+        if not os.path.isfile(os.path.join(inc, "cuda_runtime.h")):
             continue
-        if not os.path.isfile(os.path.join(targets_inc, "crt", "host_config.h")):
+        if not os.path.isfile(os.path.join(inc, "crt", "host_config.h")):
             continue
         # Ensure thrust/ is accessible (newer CUDA moves it under cccl/).
-        thrust_link = os.path.join(targets_inc, "thrust")
+        thrust_link = os.path.join(inc, "thrust")
         if not os.path.exists(thrust_link):
-            cccl_thrust = os.path.join(targets_inc, "cccl", "thrust")
+            cccl_thrust = os.path.join(inc, "cccl", "thrust")
             if os.path.isdir(cccl_thrust):
                 try:
                     os.symlink(cccl_thrust, thrust_link)
                 except OSError:
                     pass
-        targets_root = os.path.normpath(os.path.join(targets_inc, ".."))
-        env["CUDA_HOME"] = targets_root
-        logger.debug("Sharp render: CUDA_HOME=%s", targets_root)
+        # Only proceed if thrust is now accessible (symlink may have failed).
+        if not os.path.exists(os.path.join(inc, "thrust")):
+            logger.debug("Sharp render: thrust not found in %s, skipping", inc)
+            continue
+        cuda_home_candidate = os.path.normpath(os.path.join(inc, ".."))
+        env["CUDA_HOME"] = cuda_home_candidate
+        logger.debug("Sharp render: CUDA_HOME=%s", cuda_home_candidate)
         return env
 
     logger.warning("Sharp render: could not locate a complete CUDA include tree; "
