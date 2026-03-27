@@ -116,9 +116,9 @@ class NoobAIEngine:
                 # TF32 speedup is always active regardless of compilation.
                 if self.optimize and self._device == "cuda":
                     if self._dora_manager.dora_loaded:
-                        logger.info("Skipping torch.compile (incompatible with DoRA); TF32 still active")
+                        logger.info("Skipping torch.compile (incompatible with DoRA)")
                     elif is_sage_attention_active():
-                        logger.info("Skipping torch.compile (incompatible with SageAttention); TF32 still active")
+                        logger.info("Skipping torch.compile (incompatible with SageAttention)")
                     else:
                         logger.info("Compiling UNet with torch.compile max-autotune (first inference may take several minutes)...")
                         self.pipe.unet = torch.compile(

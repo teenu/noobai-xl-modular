@@ -94,7 +94,7 @@ def load_pipeline(model_path: str, device: str, force_fp32: bool = False, optimi
         torch.set_float32_matmul_precision('high')
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
-        logger.info("TF32 enabled for faster matrix multiplications")
+        logger.debug("TF32 enabled for CUDA matmul and cuDNN")
 
     if optimize and device == "cuda":
         # Enable persistent inductor cache for faster subsequent runs
@@ -336,7 +336,7 @@ def _try_install_sageattention(pipe: StableDiffusionXLPipeline) -> None:
 
         pipe.unet.set_attn_processor(SageAttnProcessor())
         _SAGE_ATTENTION_ACTIVE = True
-        logger.info("SageAttention active — ~5x attention speedup on Blackwell (incompatible with --optimize)")
+        logger.info("SageAttention active — ~5x attention speedup on Blackwell")
 
     except ImportError:
         logger.info(
