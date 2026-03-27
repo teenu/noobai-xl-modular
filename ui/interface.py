@@ -120,11 +120,11 @@ def create_interface(model_path: str = None, force_fp32: bool = False, optimize:
     ]
 
     with gr.Blocks(
-        title="NoobAI XL V-Pred 1.0 (Hash Consistency Edition)",
+        title="4CGT \u2014 \u56db\u5f6b\u753b\u5320",
     ) as demo:
 
         gr.HTML(
-            '<div class="title-text">🎯 NoobAI XL V-Pred 1.0 - Hash Consistency Edition'
+            '<div class="title-text">4CGT \u2014 \u56db\u5f6b\u753b\u5320 (Shich\u014d Gash\u014d)'
             '<div class="sponsor-link">'
             '<a href="https://github.com/sponsors/teenu" target="_blank" rel="noopener">&#9829; Sponsor</a>'
             '</div></div>'

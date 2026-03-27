@@ -1,8 +1,9 @@
-# NoobAI XL V-Pred 1.0 - Modular Implementation
+# 4CGT — 四彫画匠 (Shichō Gashō)
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?style=for-the-badge&logo=github)](https://github.com/sponsors/teenu)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge)](LICENSE)
 
-Clean, modular implementation of NoobAI XL V-Pred 1.0 with precision optimization, DoRA adapter support, and interactive prompt formatting.
+**Master Artisan of Sculpted Art** — quality-engineered anime image generation with cross-platform determinism, DoRA anatomical accuracy, and integrated 2D→3D conversion. Built on NoobAI XL V-Pred 1.0.
 
 ## ⚠️ Critical: Supported Model Formats
 
