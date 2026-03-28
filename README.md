@@ -24,15 +24,7 @@ Anime image generation that nails anatomy, follows your prompt, and gives you th
 
 ---
 
-## What makes this different
-
-Most SDXL frontends load the model and hit generate. 4CGT does more:
-
-- **Characters look right.** Sakura Haruno has green eyes and pink hair. Miku has her twintails. DoRA stabilizers eliminate the melted-face lottery.
-- **Your prompt is the truth.** 600-token prompts with A1111 weight syntax. What you type is what you get.
-- **Same seed = same image.** SHA-identical output on macOS, Windows, and Linux. Not "similar" — identical. Verified by hash.
-- **2D to 3D in under a second.** Generate an image, click a button, get a Gaussian Splat .ply with optional video flythrough.
-- **Runs on your GPU.** No cloud, no API keys, no subscriptions. GTX 1060 to RTX 5090.
+SDXL v-prediction frontend built around [NoobAI XL V-Pred 1.0](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0). DoRA weight-decomposed adapters for anatomical accuracy. BF16/FP32 lossless pipeline — FP16 is rejected on load. Deterministic output: same seed produces the same image hash across macOS, Windows, and Linux. Long prompt support up to ~600 tokens with A1111 weight syntax. Integrated 2D-to-3D Gaussian Splat conversion via Apple Sharp. OpenPose ControlNet tuned for v-prediction. Runs locally on GTX 1060 through RTX 5090 and Apple Silicon.
 
 ## Quick start
 
