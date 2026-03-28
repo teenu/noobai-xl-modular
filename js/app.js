@@ -65,8 +65,10 @@ function initHero() {
   }, 6000);
 
   const hint = document.querySelector('.scroll-hint');
+  const nav = document.querySelector('.nav');
   window.addEventListener('scroll', () => {
     hint.classList.toggle('fade', window.scrollY > 80);
+    nav.classList.toggle('scrolled', window.scrollY > 100);
   }, { passive: true });
 }
 
