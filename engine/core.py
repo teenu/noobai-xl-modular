@@ -21,6 +21,7 @@ from engine.controlnet_manager import ControlNetManager
 from engine.progress import ProgressManager
 from engine.memory import clear_memory, teardown_pipeline
 from engine.prompt import TokenManager, EmbeddingGenerator
+from safety import PromptFilter
 
 torch.use_deterministic_algorithms(True, warn_only=True)
 torch.backends.cudnn.deterministic = True
@@ -104,6 +105,8 @@ class NoobAIEngine:
                 )
                 self._embedding_generator = EmbeddingGenerator(self.pipe)
                 logger.info(f"Prompt encoding: {self._embedding_generator.mode_description}")
+
+                self._prompt_filter = PromptFilter()
 
                 if self.enable_dora:
                     self._dora_manager.load_adapter(dora_path)
@@ -388,6 +391,11 @@ class NoobAIEngine:
     ) -> Tuple[Image.Image, int, str]:
         if not self.is_initialized:
             raise EngineNotInitializedError("NoobAI engine is not initialized")
+
+        # Content safety: check prompts before GPU inference
+        safety_result = self._prompt_filter.check_both(prompt, negative_prompt)
+        if not safety_result.allowed:
+            raise InvalidParameterError(f"Prompt rejected: {safety_result.reason}")
 
         if enable_dora is not None:
             self.set_dora_enabled(enable_dora)

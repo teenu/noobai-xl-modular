@@ -1,0 +1,56 @@
+4CGT — Third-Party Attribution
+
+This software incorporates or depends on the following third-party works.
+Each carries its own license. See the linked sources for full terms.
+
+Base Model
+----------
+NoobAI XL V-Pred 1.0
+  Author: Laxhar
+  Source: https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0
+  License: FAIPL-1.0-SD (fair-ai-public-license-1.0-sd)
+
+Illustrious-XL (upstream of NoobAI)
+  Author: OnomaAI Research
+  Source: https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0
+  License: FAIPL-1.0-SD
+
+Stable Diffusion XL (upstream of Illustrious-XL)
+  Author: Stability AI
+  Source: https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
+  License: CreativeML Open RAIL++-M
+
+DoRA Adapters
+-------------
+noobai_vp10_stabilizer (v0.271, v0.280a)
+  Author: reakaakasky
+  Source: https://civitai.com/models/971952
+  License: Civitai creator permissions (see model page)
+
+ControlNet
+----------
+ControlNet OpenPose SDXL 1.0
+  Author: xinsir
+  Source: https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0
+  License: Apache-2.0
+
+Style Data
+----------
+Danbooru and e621 tag CSVs
+  Author: Laxhar
+  Source: https://huggingface.co/datasets/Laxhar/noob-wiki
+  License: See source
+
+Long Prompt Support
+-------------------
+sd_embed
+  Author: xhinker
+  Source: https://github.com/xhinker/sd_embed
+  License: Apache-2.0
+
+2D-to-3D Conversion (Optional)
+-------------------------------
+Apple Sharp (ml-sharp)
+  Author: Apple Inc.
+  Source: https://github.com/apple/ml-sharp
+  License: See source
