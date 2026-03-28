@@ -239,40 +239,6 @@
     "nsfw": false
   },
   {
-    "id": "reimu_autumn",
-    "image": "08_miko_autumn.png",
-    "date": "2026-03-28",
-    "character": "Hakurei Reimu",
-    "series": "Touhou Project",
-    "tags": [
-      "shrine",
-      "autumn",
-      "falling leaves"
-    ],
-    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, red eyes, brown hair, long hair, hair bow, hair tubes, red bow, detached sleeves, hakurei reimu, touhou, shrine, autumn leaves, torii gate, golden light, scenery, cinematic lighting",
-    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": {
-      "seed": 5050,
-      "steps": 42,
-      "cfg_scale": 5.5261,
-      "rescale_cfg": 0.6092,
-      "width": 1216,
-      "height": 832,
-      "model": "NoobAI-XL-Vpred-v1.0",
-      "scheduler": "EulerDiscreteScheduler"
-    },
-    "dora": {
-      "enabled": true,
-      "adapter": "v0.271",
-      "mode": "none",
-      "strength": 1.0,
-      "start_step": 3
-    },
-    "commit": "5b93848",
-    "commentary": null,
-    "nsfw": false
-  },
-  {
     "id": "frieren_beach",
     "image": "frieren_beach.png",
     "date": "2026-03-27",
@@ -791,12 +757,34 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["rain", "neon", "cyberpunk", "original"],
+    "tags": [
+      "rain",
+      "neon",
+      "cyberpunk",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, short black hair, bob cut, golden eyes, leather jacket, neon signs, cyberpunk city, rain, wet street, reflections, night, rooftop edge, looking at viewer, upper body, dramatic",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 5555, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 1216, "height": 832, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 5555,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   },
   {
     "id": "enchanted_forest",
@@ -804,12 +792,34 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["forest", "magic", "fireflies", "original"],
+    "tags": [
+      "forest",
+      "magic",
+      "fireflies",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, purple hair, long flowing hair, witch hat, violet eyes, enchanted forest, glowing mushrooms, fireflies, ancient tree, magical particles, dark cloak, mysterious smile, cinematic lighting",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 8888, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 1216, "height": 832, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 8888,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   },
   {
     "id": "gothic_rose",
@@ -817,12 +827,34 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["gothic lolita", "cathedral", "roses", "original"],
+    "tags": [
+      "gothic lolita",
+      "cathedral",
+      "roses",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, long silver hair, red eyes, black gothic lolita dress, roses, thorns, stained glass window, candlelight, dark cathedral interior, intricate lace, upper body, looking at viewer, elegant",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 6666, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 832, "height": 1216, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 6666,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 832,
+      "height": 1216,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   },
   {
     "id": "moonlit_warrior",
@@ -830,12 +862,34 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["moonlight", "armor", "sword", "original"],
+    "tags": [
+      "moonlight",
+      "armor",
+      "sword",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, long blue hair, flowing hair, piercing amber eyes, ornate armor, moonlit battlefield, glowing sword, cape billowing, dramatic clouds, full moon, full body, dynamic pose, epic",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 7070, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 832, "height": 1216, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 7070,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 832,
+      "height": 1216,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   },
   {
     "id": "samurai_dawn",
@@ -843,12 +897,34 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["samurai", "cherry blossoms", "dawn", "original"],
+    "tags": [
+      "samurai",
+      "cherry blossoms",
+      "dawn",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, long black hair, high ponytail, red eyes, katana, hakama, cherry blossoms, dawn sky, temple stairs, petals falling, wind, stoic expression, full body, cinematic lighting",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 4444, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 832, "height": 1216, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 4444,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 832,
+      "height": 1216,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   },
   {
     "id": "underwater_dream",
@@ -856,12 +932,34 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["underwater", "jellyfish", "ethereal", "original"],
+    "tags": [
+      "underwater",
+      "jellyfish",
+      "ethereal",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, long white hair, flowing hair, blue eyes, underwater, air bubbles, sunlight filtering through water, jellyfish, white dress, floating, serene expression, from below, ethereal lighting",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 3333, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 832, "height": 1216, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 3333,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 832,
+      "height": 1216,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   },
   {
     "id": "winter_solitude",
@@ -869,11 +967,33 @@
     "date": "2026-03-27",
     "character": null,
     "series": null,
-    "tags": ["snow", "winter", "city night", "original"],
+    "tags": [
+      "snow",
+      "winter",
+      "city night",
+      "original"
+    ],
     "prompt": "very awa, masterpiece, best quality, 1girl, white hair, long hair, red scarf, winter coat, snowing, city at night, street lamps, warm breath, hands in pockets, walking alone, melancholy, cinematic lighting, from side",
     "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": { "seed": 1111, "steps": 42, "cfg_scale": 5.5261, "rescale_cfg": 0.6092, "width": 1216, "height": 832, "model": "NoobAI-XL-Vpred-v1.0", "scheduler": "EulerDiscreteScheduler" },
-    "dora": { "enabled": true, "adapter": "v0.271", "mode": "none", "strength": 1.0, "start_step": 3 },
-    "commit": "5b93848", "commentary": null, "nsfw": false
+    "settings": {
+      "seed": 1111,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
   }
 ]
