@@ -6,7 +6,7 @@
 
 **Shichō Gashō** — the art of sculpted mastery.
 
-Anime image generation that nails anatomy, follows your prompt, and gives you the same pixel-perfect result on any machine. Every time.
+Anime image generation with DoRA anatomical correction, prompt fidelity up to 600 tokens, and deterministic output — same seed, same PNG hash across macOS, Windows, and Linux.
 
 <p align="center">
 <img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/frieren_beach.png" width="24%" />
@@ -24,9 +24,11 @@ Anime image generation that nails anatomy, follows your prompt, and gives you th
 
 ---
 
-SDXL v-prediction frontend built around [NoobAI XL V-Pred 1.0](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0). DoRA weight-decomposed adapters for anatomical accuracy. BF16/FP32 lossless pipeline — FP16 is rejected on load. Deterministic output: same seed produces the same image hash across macOS, Windows, and Linux. Long prompt support up to ~600 tokens with A1111 weight syntax. Integrated 2D-to-3D Gaussian Splat conversion via Apple Sharp. OpenPose ControlNet tuned for v-prediction. Runs locally on GTX 1060 through RTX 5090 and Apple Silicon.
+SDXL v-prediction frontend built around [NoobAI XL V-Pred 1.0](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0). DoRA weight-decomposed adapters for anatomical accuracy. BF16/FP32 lossless pipeline — FP16 is rejected on load. Deterministic output: same seed produces the same PNG hash across macOS, Windows, and Linux. Long prompt support up to 600 tokens (8 chunks × 75 tokens) with A1111 weight syntax. Integrated 2D-to-3D Gaussian Splat conversion via [Apple Sharp](https://github.com/apple/ml-sharp). OpenPose ControlNet for v-prediction at conditioning scale 2.0. Runs locally on 6 GB VRAM (GTX 1060) through 32 GB (RTX 5090) and Apple Silicon M1–M4.
 
 ## Quick start
+
+Requires Python 3.11 or 3.12 (not 3.13) and PyTorch >= 2.7.0.
 
 ```bash
 git clone https://github.com/teenu/4cgt.git && cd 4cgt
@@ -37,21 +39,22 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # Install dependencies
 pip install -r requirements.txt
 
-# Download assets (see table below for sources)
-# Then place them: model in repo root, adapters in dora/, CSVs in style/
+# Download assets (see tables below for filenames, hashes, and sources)
+# Place them: model in repo root, adapters in dora/, CSVs in style/
 
 # Launch
 python main.py
 ```
 
-Opens a web UI at `http://localhost:7860`. That's it.
+Opens a Gradio web UI at `http://localhost:7860`.
 
 ### CLI mode
 
 ```bash
-# DoRA None mode auto-applies optimal settings (42 steps, CFG 5.53, rescale 0.61)
+# DoRA None mode auto-applies: 42 steps, CFG 5.5261, rescale 0.6092, start step 3
 python main.py --cli \
-  --prompt "very awa, masterpiece, best quality, 1girl, silver hair, red eyes, black dress, night sky, cinematic lighting" \
+  --prompt "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, silver hair, red eyes, black dress, night sky, stars, cinematic lighting" \
+  --width 1216 --height 832 \
   --enable-dora --dora-adapter 0 --seed 7777
 ```
 
@@ -111,23 +114,23 @@ These assets carry their own licenses. See each source for terms.
 
 Weight-Decomposed Low-Rank Adaptation adapters trained for v-prediction. Three modes:
 
-- **None mode** — optimal defaults (42 steps, CFG 5.53, rescale 0.61). Best starting point.
-- **Optimized** — preset-locked 34-step schedule. Parameters are frozen.
-- **Manual** — per-step binary toggle grid. Full control over when DoRA activates.
+- **None mode** — 42 steps, CFG 5.5261, rescale 0.6092, adapter strength 1.0, DoRA activates at step 3.
+- **Optimized** — 34 steps, CFG 4.2, rescale 0.55, adapter strength 1.0. Binary schedule frozen: `[0,0,0,0,0,0,1,1,1,0,1,1,0,0,0,0,0,1,1,0,0,0,1,0,0,0,0,1,1,1,1,1,1,1]`.
+- **Manual** — per-step binary toggle grid. Each of the N steps gets a 0 (off) or 1 (on) value via interactive UI grid or CSV string.
 
 ### Lossless precision pipeline
 
 FP16 is rejected on load. Not downcast, not warned — rejected.
 
-The pipeline is BF16 or FP32 only. VAE always decodes in FP32. The result: no precision-dependent artifacts, no platform-dependent drift. The image you generate on your Mac is byte-identical to the one on your Linux workstation.
+The pipeline is BF16 or FP32 only. VAE always decodes in FP32. The result: no precision-dependent artifacts, no platform-dependent drift. Same seed produces the same PNG file hash on macOS, Windows, and Linux.
 
 ### Long prompts
 
-Standard CLIP cuts off at 77 tokens. 4CGT extends this to ~600 tokens via `sd_embed`, with full A1111-compatible syntax: `(emphasis:1.2)`, `[de-emphasis]`, `((nested weights))`.
+Standard CLIP cuts off at 77 tokens. 4CGT extends this to 600 tokens (8 chunks × 75 usable tokens) via `sd_embed`, with full A1111-compatible syntax: `(emphasis:1.2)`, `[de-emphasis]`, `((nested weights))`.
 
 ### Image to 3D
 
-Integrated Apple Sharp pipeline. Generate an image, convert it to a 3D Gaussian Splat (.ply), optionally render a camera flythrough video — all without leaving the UI. Sharp runs in a subprocess so it doesn't evict SDXL from VRAM.
+Integrated [Apple Sharp](https://github.com/apple/ml-sharp) pipeline. Generate an image, convert it to a 3D Gaussian Splat (.ply), optionally render a camera flythrough video — all without leaving the UI. Sharp runs in a subprocess so it doesn't evict SDXL from VRAM.
 
 ### ControlNet pose control
 
@@ -137,11 +140,11 @@ OpenPose skeleton conditioning optimized for v-prediction. Default conditioning 
 
 | GPU | BF16 | Notes |
 |-----|------|-------|
-| RTX 5090 (Blackwell) | Native | CUDA 12.8+, PyTorch 2.9+ |
-| RTX 30xx/40xx (Ampere/Ada) | Native | Optimal |
-| RTX 20xx (Turing) | Upcast to FP32 | Slower, identical quality |
-| Apple Silicon (M1-M4) | Native (AMX) | Optimal |
-| GTX 1060+ (6GB) | Upcast to FP32 | Auto CPU offloading |
+| RTX 5090 (Blackwell) | Native | CUDA 12.8+, PyTorch >= 2.7.0 |
+| RTX 30xx/40xx (Ampere/Ada) | Native | |
+| RTX 20xx (Turing) | Upcast to FP32 | Same weights, FP32 arithmetic |
+| Apple Silicon (M1–M4) | Native (AMX) | |
+| GTX 1060+ (6 GB VRAM) | Upcast to FP32 | Auto CPU offload at < 8 GB VRAM |
 
 ### PyTorch install by GPU
 
@@ -172,7 +175,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 **No model found** — place `NoobAI-XL-Vpred-v1.0.safetensors` in the repo root or use `--model-path`
 
-**CUDA out of memory** — reduce resolution to 768x1024, reduce steps to 25, or close other GPU apps. CPU offloading kicks in automatically under 8GB VRAM.
+**CUDA out of memory** — reduce resolution to 1024x1024 or 832x1216, reduce steps to 25, or close other GPU apps. CPU offloading kicks in automatically when VRAM < 8 GB.
 
 **Windows path too long** — enable long paths: `New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force` then restart.
 
