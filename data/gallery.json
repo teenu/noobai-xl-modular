@@ -170,41 +170,6 @@
     "nsfw": false
   },
   {
-    "id": "dark_knight",
-    "image": "06_dark_knight.png",
-    "date": "2026-03-28",
-    "character": null,
-    "series": null,
-    "tags": [
-      "burning city",
-      "greatsword",
-      "epic",
-      "original"
-    ],
-    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1boy, white hair, red eyes, black armor, greatsword, torn cape, burning city, smoke, embers, wide shot, epic, dramatic lighting",
-    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
-    "settings": {
-      "seed": 1337,
-      "steps": 42,
-      "cfg_scale": 5.5261,
-      "rescale_cfg": 0.6092,
-      "width": 1216,
-      "height": 832,
-      "model": "NoobAI-XL-Vpred-v1.0",
-      "scheduler": "EulerDiscreteScheduler"
-    },
-    "dora": {
-      "enabled": true,
-      "adapter": "v0.271",
-      "mode": "none",
-      "strength": 1.0,
-      "start_step": 3
-    },
-    "commit": "5b93848",
-    "commentary": null,
-    "nsfw": false
-  },
-  {
     "id": "frieren_beach",
     "image": "frieren_beach.png",
     "date": "2026-03-27",
