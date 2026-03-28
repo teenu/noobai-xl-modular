@@ -49,7 +49,8 @@ class NoobAIEngine:
                  dora_start_step: int = MODEL_CONFIG.DEFAULT_DORA_START_STEP,
                  force_fp32: bool = False, optimize: bool = False,
                  controlnet_path: Optional[str] = None,
-                 controlnet_scale: float = CONTROLNET_CONFIG.DEFAULT_CONDITIONING_SCALE):
+                 controlnet_scale: float = CONTROLNET_CONFIG.DEFAULT_CONDITIONING_SCALE,
+                 enable_safety_filter: bool = False):
         self.model_path = model_path
         self.enable_dora = enable_dora
         self.adapter_strength = adapter_strength
@@ -57,6 +58,7 @@ class NoobAIEngine:
         self.force_fp32 = force_fp32
         self.optimize = optimize
         self.controlnet_scale = controlnet_scale
+        self.enable_safety_filter = enable_safety_filter
         self.pipe: Optional[Union[StableDiffusionXLPipeline, StableDiffusionXLControlNetPipeline]] = None
         self._base_pipe: Optional[StableDiffusionXLPipeline] = None  # Store base pipeline for non-ControlNet generation
         self.is_initialized = False
@@ -106,7 +108,7 @@ class NoobAIEngine:
                 self._embedding_generator = EmbeddingGenerator(self.pipe)
                 logger.info(f"Prompt encoding: {self._embedding_generator.mode_description}")
 
-                self._prompt_filter = PromptFilter()
+                self._prompt_filter = PromptFilter() if self.enable_safety_filter else None
 
                 if self.enable_dora:
                     self._dora_manager.load_adapter(dora_path)
@@ -392,10 +394,10 @@ class NoobAIEngine:
         if not self.is_initialized:
             raise EngineNotInitializedError("NoobAI engine is not initialized")
 
-        # Content safety: check prompts before GPU inference
-        safety_result = self._prompt_filter.check_both(prompt, negative_prompt)
-        if not safety_result.allowed:
-            raise InvalidParameterError(f"Prompt rejected: {safety_result.reason}")
+        if self._prompt_filter:
+            safety_result = self._prompt_filter.check_both(prompt, negative_prompt)
+            if not safety_result.allowed:
+                raise InvalidParameterError(f"Prompt rejected: {safety_result.reason}")
 
         if enable_dora is not None:
             self.set_dora_enabled(enable_dora)
