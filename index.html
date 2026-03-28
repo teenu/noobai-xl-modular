@@ -223,6 +223,36 @@ body{
   .lightbox-img{max-width:100vw;max-height:75vh;border-radius:0}
 }
 
+/* Age Gate */
+.age-gate{
+  display:none;position:fixed;inset:0;z-index:2000;
+  background:rgba(10,10,15,0.98);
+  justify-content:center;align-items:center;
+}
+.age-gate.active{display:flex}
+.age-gate-box{
+  text-align:center;max-width:400px;padding:48px 32px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;
+}
+.age-gate-box h2{
+  font-family:'Noto Serif JP',serif;font-size:24px;margin-bottom:8px;
+}
+.age-gate-box p{color:var(--muted);font-size:14px;margin-bottom:32px;line-height:1.6}
+.age-gate-box .btn-row{display:flex;gap:12px;justify-content:center}
+.age-gate-box .btn-confirm{
+  padding:12px 32px;border-radius:8px;font-size:15px;font-weight:500;
+  border:none;cursor:pointer;transition:all 0.2s;
+  background:var(--text);color:var(--bg);
+}
+.age-gate-box .btn-confirm:hover{background:#fff;transform:translateY(-1px)}
+.age-gate-box .btn-deny{
+  padding:12px 32px;border-radius:8px;font-size:15px;font-weight:500;
+  border:1px solid var(--border);cursor:pointer;transition:all 0.2s;
+  background:transparent;color:var(--muted);
+}
+.age-gate-box .btn-deny:hover{border-color:var(--muted)}
+
 /* Footer */
 footer{
   text-align:center;padding:40px 24px;position:relative;z-index:1;
@@ -234,9 +264,21 @@ footer a:hover{text-decoration:underline}
   font-family:'Noto Serif JP',serif;font-size:20px;
   color:var(--border);margin-bottom:12px;
 }
+.footer-legal{margin-top:8px;font-size:12px}
 </style>
 </head>
 <body>
+<div class="age-gate active" id="age-gate">
+  <div class="age-gate-box">
+    <h2>Age Verification</h2>
+    <p>This site contains AI-generated artwork that may include mature content. You must be 18 years or older to enter.</p>
+    <div class="btn-row">
+      <button class="btn-confirm" id="age-confirm">I am 18 or older</button>
+      <button class="btn-deny" id="age-deny">Leave</button>
+    </div>
+  </div>
+</div>
+
 <div class="noise"></div>
 
 <section class="hero">
@@ -310,7 +352,8 @@ footer a:hover{text-decoration:underline}
 
 <footer>
   <div class="footer-kanji">四彫画匠</div>
-  <p>4CGT &mdash; <a href="https://github.com/teenu/4cgt">GitHub</a> &middot; <a href="https://github.com/sponsors/teenu">Sponsor</a> &middot; AGPL-3.0</p>
+  <p>4CGT &mdash; <a href="https://github.com/teenu/4cgt">Source Code (AGPL-3.0)</a> &middot; <a href="https://github.com/sponsors/teenu">Sponsor</a></p>
+  <p class="footer-legal"><a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a></p>
 </footer>
 
 <div class="lightbox" id="lightbox">
@@ -323,6 +366,19 @@ footer a:hover{text-decoration:underline}
 
 <script>
 (function(){
+  // Age gate (localStorage-based)
+  var gate=document.getElementById('age-gate');
+  if(localStorage.getItem('4cgt_age_verified')==='true'){
+    gate.classList.remove('active');
+  }
+  document.getElementById('age-confirm').addEventListener('click',function(){
+    localStorage.setItem('4cgt_age_verified','true');
+    gate.classList.remove('active');
+  });
+  document.getElementById('age-deny').addEventListener('click',function(){
+    window.location.href='https://www.google.com';
+  });
+
   var slides=document.querySelectorAll('.hero-slide');
   var idx=0;
   setInterval(function(){
