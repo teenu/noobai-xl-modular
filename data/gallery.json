@@ -1,0 +1,788 @@
+[
+  {
+    "id": "2b_moonlight",
+    "image": "01_2b_ruins.png",
+    "date": "2026-03-28",
+    "character": "2B",
+    "series": "NieR: Automata",
+    "tags": [
+      "moonlight",
+      "katana",
+      "ancient"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, mole under mouth, short hair, white hair, black blindfold, black dress, 2b, nier automata, katana, moonlight, ancient ruins, standing, wind, full body, dramatic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 2077,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "frieren_library",
+    "image": "02_frieren_library.png",
+    "date": "2026-03-28",
+    "character": "Frieren",
+    "series": "Sousou no Frieren",
+    "tags": [
+      "library",
+      "magic",
+      "floating books"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, green eyes, long hair, white hair, twintails, parted bangs, elf, frieren, sousou no frieren, ancient library, floating books, magical light, dust particles, reading, serene, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 1001,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "makima_dark",
+    "image": "03_makima.png",
+    "date": "2026-03-28",
+    "character": "Makima",
+    "series": "Chainsaw Man",
+    "tags": [
+      "dark background",
+      "close-up",
+      "ringed eyes"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, ringed eyes, yellow eyes, red hair, braided ponytail, makima, chainsaw man, looking at viewer, upper body, dark background, chains, ominous, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 6660,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "yor_rooftop",
+    "image": "04_yor_night.png",
+    "date": "2026-03-28",
+    "character": "Yor Briar",
+    "series": "Spy x Family",
+    "tags": [
+      "moonlight",
+      "rooftop",
+      "dynamic pose"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, red eyes, black hair, long hair, black dress, bare shoulders, yor briar, spy x family, dynamic pose, moonlight, rooftop, night city, full body, dramatic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 3939,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "violet_letter",
+    "image": "05_violet.png",
+    "date": "2026-03-28",
+    "character": "Violet Evergarden",
+    "series": "Violet Evergarden",
+    "tags": [
+      "letter",
+      "golden hour",
+      "window light"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, blue eyes, blonde hair, blue jacket, white dress, brooch, violet evergarden, writing letter, window light, golden hour, emotional, upper body, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 4242,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "dark_knight",
+    "image": "06_dark_knight.png",
+    "date": "2026-03-28",
+    "character": null,
+    "series": null,
+    "tags": [
+      "burning city",
+      "greatsword",
+      "epic",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1boy, white hair, red eyes, black armor, greatsword, torn cape, burning city, smoke, embers, wide shot, epic, dramatic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 1337,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "saber_alter",
+    "image": "07_saber_alter.png",
+    "date": "2026-03-28",
+    "character": "Saber Alter",
+    "series": "Fate",
+    "tags": [
+      "battlefield",
+      "dramatic sky",
+      "excalibur morgan"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, yellow eyes, blonde hair, sidelocks, excalibur morgan, saber alter, fate (series), battlefield, dramatic sky, wind, standing, full body, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 7070,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "reimu_autumn",
+    "image": "08_miko_autumn.png",
+    "date": "2026-03-28",
+    "character": "Hakurei Reimu",
+    "series": "Touhou Project",
+    "tags": [
+      "shrine",
+      "autumn",
+      "falling leaves"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, red eyes, brown hair, long hair, hair bow, hair tubes, red bow, detached sleeves, hakurei reimu, touhou, shrine, autumn leaves, torii gate, golden light, scenery, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 5050,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "frieren_beach",
+    "image": "frieren_beach.png",
+    "date": "2026-03-27",
+    "character": "Frieren",
+    "series": "Sousou no Frieren",
+    "tags": [
+      "beach",
+      "cumulonimbus",
+      "swimsuit"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, frieren, sousou no frieren, swimsuit, kneeling, beach, stunning, cumulonimbus clouds, detailed",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 42,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": true
+  },
+  {
+    "id": "lucy_cyberpunk",
+    "image": "lucy_cyberpunk.png",
+    "date": "2026-03-27",
+    "character": "Lucy",
+    "series": "Cyberpunk: Edgerunners",
+    "tags": [
+      "neon",
+      "cyberpunk",
+      "portrait"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, red lips, blue eyes, multicolored eyes, short hair, multicolored hair, white hair, parted bangs, bare shoulders, eyeliner, red eyeliner, cyborg, lucy \\(cyberpunk\\), cyberpunk \\(series\\), diffused light",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 777,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "miku",
+    "image": "miku.png",
+    "date": "2026-03-27",
+    "character": "Hatsune Miku",
+    "series": "Vocaloid",
+    "tags": [
+      "diffused light",
+      "twintails",
+      "ethereal"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, aqua eyes, blue eyes, very long hair, aqua hair, long hair, twintails, detached sleeves, hatsune miku, vocaloid, diffused light",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 1234,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "makima",
+    "image": "makima.png",
+    "date": "2026-03-27",
+    "character": "Makima",
+    "series": "Chainsaw Man",
+    "tags": [
+      "dynamic",
+      "braided ponytail",
+      "close-up"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, ringed eyes, yellow eyes, red hair, long hair, braided ponytail, sidelocks, makima \\(chainsaw man\\), chainsaw man, diffused light",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 2024,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "asuka",
+    "image": "asuka.png",
+    "date": "2026-03-27",
+    "character": "Souryuu Asuka Langley",
+    "series": "Neon Genesis Evangelion",
+    "tags": [
+      "plugsuit",
+      "action",
+      "neon"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, blue eyes, long hair, orange hair, two side up, plugsuit, red bodysuit, interface headset, souryuu asuka langley, neon genesis evangelion, diffused light",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 9999,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "2b_ruins",
+    "image": "2b_ruins.png",
+    "date": "2026-03-27",
+    "character": "2B",
+    "series": "NieR: Automata",
+    "tags": [
+      "ruins",
+      "post-apocalyptic",
+      "blindfold"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, mole under mouth, short hair, white hair, black hairband, black dress, black blindfold, 2b \\(nier:automata\\), nier \\(series\\), ruins, stunning, cumulonimbus clouds, detailed",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 4242,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "zero_two",
+    "image": "zero_two.png",
+    "date": "2026-03-27",
+    "character": "Zero Two",
+    "series": "Darling in the FranXX",
+    "tags": [
+      "horns",
+      "windswept",
+      "red uniform"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, horns, red horns, green eyes, pink hair, long hair, white hairband, zero two \\(darling in the franxx\\), darling in the franxx, stunning, cumulonimbus clouds, detailed",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 5678,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "yor",
+    "image": "yor.png",
+    "date": "2026-03-27",
+    "character": "Yor Briar",
+    "series": "Spy x Family",
+    "tags": [
+      "elegant",
+      "gold hairband",
+      "hair flower"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, red eyes, black hair, long hair, gold hairband, sidelocks, hair flower, black dress, bare shoulders, yor briar, spy x family, diffused light",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 7890,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "aurora",
+    "image": "aurora.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "aurora borealis",
+      "night sky",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, long purple hair, green eyes, dark cloak, looking at viewer, detailed face, upper body, aurora borealis, night sky, snow, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 8888,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "cherry_blossoms",
+    "image": "cherry_blossoms.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "cherry blossoms",
+      "spring",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, pink hair, violet eyes, sailor uniform, looking at viewer, detailed face, upper body, cherry blossoms, petals, spring, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 4444,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "crimson_flame",
+    "image": "crimson_flame.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "flames",
+      "embers",
+      "cinematic",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, long red hair, amber eyes, black armor, looking at viewer, detailed face, upper body, flames, embers, dark, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 5555,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "deep_ocean",
+    "image": "deep_ocean.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "underwater",
+      "light rays",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, long blue hair, aqua eyes, white dress, looking at viewer, detailed face, upper body, underwater, light rays, bubbles, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 6666,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "golden_hour",
+    "image": "golden_hour.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "golden hour",
+      "sunlight",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, long blonde hair, green eyes, white dress, looking at viewer, detailed face, upper body, golden hour, sunlight, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 1111,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "neon_rain",
+    "image": "neon_rain.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "rain",
+      "neon",
+      "city night",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, short black hair, golden eyes, leather jacket, looking at viewer, detailed face, upper body, rain, city night, neon lights, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 2222,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  },
+  {
+    "id": "winter_snow",
+    "image": "winter_snow.png",
+    "date": "2026-03-26",
+    "character": null,
+    "series": null,
+    "tags": [
+      "snow",
+      "winter",
+      "cinematic",
+      "original"
+    ],
+    "prompt": "very awa, masterpiece, best quality, year 2024, newest, highres, absurdres, 1girl, white hair, blue eyes, fur coat, looking at viewer, detailed face, upper body, falling snow, winter evening, cinematic lighting",
+    "negative_prompt": "worst aesthetic, worst quality, lowres, scan artifacts, ai-generated, old, 4koma, multiple views, furry, anthro, watermark, logo, signature, artist name, bad hands, extra digits, fewer digits",
+    "settings": {
+      "seed": 3333,
+      "steps": 42,
+      "cfg_scale": 5.5261,
+      "rescale_cfg": 0.6092,
+      "width": 1216,
+      "height": 832,
+      "model": "NoobAI-XL-Vpred-v1.0",
+      "scheduler": "EulerDiscreteScheduler"
+    },
+    "dora": {
+      "enabled": true,
+      "adapter": "v0.271",
+      "mode": "none",
+      "strength": 1.0,
+      "start_step": 3
+    },
+    "commit": "5b93848",
+    "commentary": null,
+    "nsfw": false
+  }
+]

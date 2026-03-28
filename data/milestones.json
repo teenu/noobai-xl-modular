@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2026-03-28",
+    "commit": "5b93848",
+    "title": "Desktop Freedom",
+    "description": "Safety module made fully opt-in with lazy imports. Zero footprint for local users."
+  },
+  {
+    "date": "2026-03-28",
+    "commit": "dbd1a8c",
+    "title": "Safety & Attribution",
+    "description": "Added content safety module, AGPL-3.0 compliance, and third-party attribution."
+  },
+  {
+    "date": "2026-03-28",
+    "commit": "f0b2932",
+    "title": "Showcase Gallery",
+    "description": "Curated 8-image gallery featuring iconic anime characters generated with DoRA v0.271."
+  },
+  {
+    "date": "2026-03-27",
+    "commit": "7933e0e",
+    "title": "Rebrand to 4CGT",
+    "description": "Project renamed to 4CGT \u2014 \u56db\u5f6b\u753b\u5320 (Shich\u014d Gash\u014d). New identity reflecting the craft of sculpted art."
+  },
+  {
+    "date": "2026-03-27",
+    "commit": "3f26ec0",
+    "title": "Public Release",
+    "description": "AGPL-3.0 license, GitHub Sponsors, and public release preparation."
+  }
+]
