@@ -9,12 +9,18 @@
 Anime image generation that nails anatomy, follows your prompt, and gives you the same pixel-perfect result on any machine. Every time.
 
 <p align="center">
-<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/showcase_1.png" width="24%" />
-<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/showcase_2.png" width="24%" />
-<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/showcase_3.png" width="24%" />
-<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/showcase_4.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/samurai_dawn.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/gothic_rose.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/underwater_dream.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/golden_hour.png" width="24%" />
 </p>
-<p align="center"><sub>All images generated with 4CGT. Seed 7777, 4242, 1337, 3939. DoRA v0.271. ~25s each on RTX 5090.</sub></p>
+<p align="center">
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/enchanted_forest.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/cyberpunk_rain.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/winter_solitude.png" width="24%" />
+<img src="https://huggingface.co/epigene/4cgt/resolve/main/showcase/moonlit_warrior.png" width="24%" />
+</p>
+<p align="center"><sub>All generated with 4CGT. DoRA v0.271. 42 steps, ~6s each on RTX 5090.</sub></p>
 
 ---
 
